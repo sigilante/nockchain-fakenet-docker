@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  nockchain-node:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nockchain
+    container_name: nockchain-fakenet
+    volumes:
+      - ./data:/data
+      - ./config:/config
+      - ./config/genesis/fakenet-pkh9yPe-pow2-bex1.jam:/genesis.jam:ro
+    ports:
+      - "8545:8545"  # RPC
+      - "8546:8546"  # WebSocket
+      - "30303:30303"  # P2P
+    environment:
+      - MINING_PKH=9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV
+      - FAKENET=true
+      - POW_LEN=2
+      - COINBASE_TIMELOCK_MIN=0
+    networks:
+      - nocknet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nockchain-cli:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cli
+    container_name: nockchain-cli
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NOCKCHAIN_RPC=http://nockchain-node:8545
+    networks:
+      - nocknet
+    stdin_open: true
+    tty: true
+
+networks:
+  nocknet:
+    driver: bridge

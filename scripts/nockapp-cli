@@ -1,0 +1,84 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/wallet.sh"
+source "$SCRIPT_DIR/lib/mining.sh"
+source "$SCRIPT_DIR/lib/checkpoint.sh"
+
+DATA_DIR="${DATA_DIR:-$SCRIPT_DIR/../data}"
+RPC_URL="${NOCKCHAIN_RPC:-http://localhost:8545}"
+
+usage() {
+    cat << EOF
+NockApp CLI - Development tools for Nockchain fakenet
+
+Usage: nockapp-cli <command> [options]
+
+Commands:
+  init <preset>              Initialize development environment
+  wallet                     Wallet management commands
+  mine                       Mining control commands
+  checkpoint <name>          Save current blockchain state
+  restore <name>             Restore blockchain state
+  tx                        Transaction commands
+  status                     Show fakenet status
+
+Wallet Commands:
+  wallet create [count]      Create new wallet(s)
+  wallet fund <pkh> <amt>    Fund wallet from miner PKH
+  wallet list                List all wallets with balances
+  
+Mining Commands:
+  mine start                 Start background mining
+  mine stop                  Stop mining
+  mine blocks <count>        Mine specific number of blocks
+
+Transaction Commands:
+  tx send <from> <to> <amt>  Send transaction
+  tx status <hash>           Check transaction status
+
+Examples:
+  nockapp-cli init poker-dev
+  nockapp-cli wallet create 4
+  nockapp-cli wallet fund 9abc... 65536000
+  nockapp-cli mine blocks 10
+  nockapp-cli checkpoint wallets-funded
+
+EOF
+}
+
+main() {
+    case "${1:-}" in
+        init)
+            init_environment "$2"
+            ;;
+        wallet)
+            shift
+            wallet_command "$@"
+            ;;
+        mine)
+            shift
+            mining_command "$@"
+            ;;
+        checkpoint)
+            checkpoint_save "$2"
+            ;;
+        restore)
+            checkpoint_restore "$2"
+            ;;
+        tx)
+            shift
+            transaction_command "$@"
+            ;;
+        status)
+            show_status
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
