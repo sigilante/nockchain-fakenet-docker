@@ -15,10 +15,8 @@ services:
       - nockchain-data:/data
       - nockchain-config:/config
     ports:
-      - "${RPC_PORT:-8545}:8545"      # RPC
-      - "${WS_PORT:-8546}:8546"       # WebSocket
-      - "${P2P_PORT:-30303}:30303"    # P2P
-      - "${GRPC_PORT:-5555}:5555"     # gRPC
+      - "${GRPC_PORT:-5555}:5555"     # gRPC API (primary interface)
+      - "${P2P_PORT:-30303}:30303"    # P2P networking
     environment:
       - MINING_PKH=${MINING_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       - FAKENET=${FAKENET:-true}

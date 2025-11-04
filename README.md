@@ -59,10 +59,11 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 4. Access the fakenet:
 
-    You can access the fakenet services at:
-    - RPC: `http://localhost:8545`
-    - WebSocket: `ws://localhost:8546`
-    - gRPC: `http://localhost:5555`
+    Nockchain uses **gRPC** for its API (not HTTP RPC). You can access the fakenet services at:
+    - **gRPC API**: `localhost:5555` (primary API for wallet operations and queries)
+    - P2P Network: `localhost:30303`
+
+    Note: The public gRPC server is enabled via a source code patch during the Docker build.
 
 ## Using the Development CLI
 
@@ -138,7 +139,21 @@ docker-compose down -v
 
 **Port already in use:**
 - Change port mappings in `docker-compose.yml`
-- Example: `"8545:8545"` → `"18545:8545"`
+- Example: `"5555:5555"` → `"15555:5555"`
+
+**gRPC API not responding:**
+- The public gRPC server is enabled via a source code patch during build
+- Check container logs: `docker-compose logs nockchain-node`
+- Look for `server_config=EnablePublicServer` in startup logs
+- Verify bind address shows `0.0.0.0:5555` not `127.0.0.1:5555`
+
+## Technical Notes
+
+### Public gRPC Server Patch
+
+The nockchain source code hardcodes the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`). This Docker build automatically patches the source code to enable it (`EnablePublicServer`) so the API is accessible from outside the container.
+
+Without this patch, the container would run and mine blocks but have no accessible API for wallet operations or blockchain queries.
 
 ## Development
 
