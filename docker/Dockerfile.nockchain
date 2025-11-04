@@ -68,8 +68,9 @@ WORKDIR /build/nockup
 RUN git clone https://github.com/sigilante/nockup.git . && \
     git checkout ${NOCKUP_VERSION}
 
-# Build nockup
-RUN cargo build --release --bin nockup
+# Build nockup with explicit nightly toolchain (override any rust-toolchain file)
+RUN rustup override set nightly && \
+    cargo build --release --bin nockup
 
 # ==============================================================================
 # Stage 2: Runtime - Minimal image with only necessary components
