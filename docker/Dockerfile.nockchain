@@ -103,9 +103,9 @@ COPY --from=builder /build/nockchain/target/release/hoon /usr/local/bin/hoon
 COPY --from=builder /root/.cargo/bin/hoonc /usr/local/bin/hoonc
 COPY --from=builder /build/nockup/target/release/nockup /usr/local/bin/nockup
 
-# Copy Hoon assets from builder stage (copy entire directories to avoid wildcard issues)
-COPY --from=builder /build/nockchain/crates/nockchain/assets /assets/
-COPY --from=builder /build/nockchain/crates/nockchain-wallet/assets /assets/
+# Note: Hoon assets are not copied as they may be embedded in binaries
+# or not needed for fakenet mode. The make build-hoon-all step may have
+# failed or the assets directories may not exist in the build output.
 
 # Ensure binaries are executable
 RUN chmod +x /usr/local/bin/nockchain \
