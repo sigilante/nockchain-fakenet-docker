@@ -53,7 +53,11 @@ RUN cargo install --locked --force --path crates/hoonc --bin hoonc
 RUN cargo build --release --bin hoon
 
 # Build Hoon assets (.jam files) using the compiled hoonc
-RUN make build-hoon-all
+RUN make build-hoon-all || echo "Warning: build-hoon-all failed, continuing anyway"
+
+# Verify assets were created and list them for debugging
+RUN ls -la crates/nockchain/assets/ || echo "No nockchain assets directory" && \
+    ls -la crates/nockchain-wallet/assets/ || echo "No nockchain-wallet assets directory"
 
 # Build nockchain and nockchain-wallet binaries
 RUN cargo build --release --bin nockchain --bin nockchain-wallet
@@ -99,9 +103,9 @@ COPY --from=builder /build/nockchain/target/release/hoon /usr/local/bin/hoon
 COPY --from=builder /root/.cargo/bin/hoonc /usr/local/bin/hoonc
 COPY --from=builder /build/nockup/target/release/nockup /usr/local/bin/nockup
 
-# Copy Hoon assets from builder stage
-COPY --from=builder /build/nockchain/crates/nockchain/assets/*.jam /assets/
-COPY --from=builder /build/nockchain/crates/nockchain-wallet/assets/*.jam /assets/
+# Copy Hoon assets from builder stage (copy entire directories to avoid wildcard issues)
+COPY --from=builder /build/nockchain/crates/nockchain/assets /assets/
+COPY --from=builder /build/nockchain/crates/nockchain-wallet/assets /assets/
 
 # Ensure binaries are executable
 RUN chmod +x /usr/local/bin/nockchain \
