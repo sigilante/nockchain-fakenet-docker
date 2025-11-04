@@ -8,7 +8,12 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 ## Features
 
-- **Self-contained build**: Builds nockchain from source - no host dependencies required
+- **Self-contained build**: Builds entire nockchain ecosystem from source - no host dependencies required
+  - `nockchain` - Main node binary
+  - `nockchain-wallet` - Wallet management tool
+  - `hoon` - Hoon runtime/interpreter
+  - `hoonc` - Hoon compiler
+  - `nockup` - NockApp project management tool
 - **Multi-stage Docker build**: Optimized image size with separate build and runtime stages
 - **Named volumes**: Persistent data storage without host filesystem coupling
 - **Development CLI**: Helper scripts for wallet management, mining, and checkpoints
@@ -43,7 +48,7 @@ This repository contains a Docker Compose setup for running a local fakenet of N
     docker-compose up -d
     ```
 
-    The first build will take 15-30 minutes as it compiles nockchain from source. Subsequent builds use Docker layer caching and are much faster.
+    The first build will take 20-40 minutes as it compiles the entire nockchain ecosystem from source (nockchain, nockchain-wallet, hoon, hoonc, and nockup). Subsequent builds use Docker layer caching and are much faster.
 
 4. Check the status:
 
@@ -84,12 +89,13 @@ The `scripts/nockapp-cli` tool provides convenient commands for development:
 
 ### Build Arguments
 
-You can specify the nockchain version to build:
+You can specify the versions to build in your `.env` file or directly in `docker-compose.yml`:
 
 ```yaml
 build:
   args:
     NOCKCHAIN_VERSION: v1.0.0  # or 'master' for latest
+    NOCKUP_VERSION: v1.0.0     # or 'master' for latest
 ```
 
 ### Environment Variables

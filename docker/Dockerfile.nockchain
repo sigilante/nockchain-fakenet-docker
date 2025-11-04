@@ -1,8 +1,8 @@
 # Multi-stage Dockerfile for building nockchain from source
-# This eliminates the need to mount host binaries
+# This eliminates the need to mount host binaries and builds all tools locally
 
 # ==============================================================================
-# Stage 1: Builder - Build nockchain and nockchain-wallet from source
+# Stage 1: Builder - Build all nockchain tools from source
 # ==============================================================================
 FROM ubuntu:22.04 AS builder
 
@@ -24,22 +24,40 @@ RUN apt-get update && apt-get install -y \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Set working directory
-WORKDIR /build
+# ==============================================================================
+# Build nockchain ecosystem tools
+# ==============================================================================
 
 # Clone nockchain repository
 ARG NOCKCHAIN_VERSION=master
+WORKDIR /build/nockchain
 RUN git clone https://github.com/zorp-corp/nockchain.git . && \
     git checkout ${NOCKCHAIN_VERSION}
 
-# Build hoonc (Hoon compiler)
+# Build hoonc (Hoon compiler) - needed for building Hoon assets
 RUN cargo install --locked --force --path crates/hoonc --bin hoonc
 
-# Build Hoon assets (.jam files)
+# Build hoon (Hoon runtime/interpreter)
+RUN cargo build --release --bin hoon
+
+# Build Hoon assets (.jam files) using the compiled hoonc
 RUN make build-hoon-all
 
 # Build nockchain and nockchain-wallet binaries
 RUN cargo build --release --bin nockchain --bin nockchain-wallet
+
+# ==============================================================================
+# Build nockup tool
+# ==============================================================================
+
+# Clone nockup repository
+ARG NOCKUP_VERSION=master
+WORKDIR /build/nockup
+RUN git clone https://github.com/sigilante/nockup.git . && \
+    git checkout ${NOCKUP_VERSION}
+
+# Build nockup
+RUN cargo build --release --bin nockup
 
 # ==============================================================================
 # Stage 2: Runtime - Minimal image with only necessary components
@@ -62,15 +80,22 @@ RUN mkdir -p /data /config /assets && \
     chown -R nockchain:nockchain /data /config /assets
 
 # Copy binaries from builder stage
-COPY --from=builder /build/target/release/nockchain /usr/local/bin/nockchain
-COPY --from=builder /build/target/release/nockchain-wallet /usr/local/bin/nockchain-wallet
+COPY --from=builder /build/nockchain/target/release/nockchain /usr/local/bin/nockchain
+COPY --from=builder /build/nockchain/target/release/nockchain-wallet /usr/local/bin/nockchain-wallet
+COPY --from=builder /build/nockchain/target/release/hoon /usr/local/bin/hoon
+COPY --from=builder /root/.cargo/bin/hoonc /usr/local/bin/hoonc
+COPY --from=builder /build/nockup/target/release/nockup /usr/local/bin/nockup
 
 # Copy Hoon assets from builder stage
-COPY --from=builder /build/crates/nockchain/assets/*.jam /assets/
-COPY --from=builder /build/crates/nockchain-wallet/assets/*.jam /assets/
+COPY --from=builder /build/nockchain/crates/nockchain/assets/*.jam /assets/
+COPY --from=builder /build/nockchain/crates/nockchain-wallet/assets/*.jam /assets/
 
 # Ensure binaries are executable
-RUN chmod +x /usr/local/bin/nockchain /usr/local/bin/nockchain-wallet
+RUN chmod +x /usr/local/bin/nockchain \
+             /usr/local/bin/nockchain-wallet \
+             /usr/local/bin/hoon \
+             /usr/local/bin/hoonc \
+             /usr/local/bin/nockup
 
 # Switch to non-root user
 USER nockchain

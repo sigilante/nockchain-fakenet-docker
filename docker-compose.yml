@@ -4,8 +4,9 @@ services:
       context: .
       dockerfile: docker/Dockerfile.nockchain
       args:
-        # Pin to specific version or use 'master' for latest
+        # Pin to specific versions or use 'master' for latest
         NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
+        NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
     container_name: nockchain-fakenet
     volumes:
       # Use named volumes for data persistence (no host dependencies)
