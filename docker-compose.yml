@@ -3,30 +3,39 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.nockchain
+      args:
+        # Pin to specific version or use 'master' for latest
+        NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
     container_name: nockchain-fakenet
     volumes:
-      - ${HOME}/.cargo/bin/nockchain:/usr/local/bin/nockchain:ro
-      - ${HOME}/.cargo/bin/nockchain-wallet:/usr/local/bin/nockchain-wallet:ro
-      - ./data:/data
-      - ./config:/config
-      - ./config/genesis/fakenet-pkh9yPe-pow2-bex1.jam:/genesis.jam:ro
+      # Use named volumes for data persistence (no host dependencies)
+      - nockchain-data:/data
+      - nockchain-config:/config
     ports:
-      - "8545:8545"    # RPC
-      - "8546:8546"    # WebSocket
-      - "30303:30303"  # P2P
-      - "5555:5555"    # gRPC
+      - "${RPC_PORT:-8545}:8545"      # RPC
+      - "${WS_PORT:-8546}:8546"       # WebSocket
+      - "${P2P_PORT:-30303}:30303"    # P2P
+      - "${GRPC_PORT:-5555}:5555"     # gRPC
     environment:
-      - MINING_PKH=9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV
-      - FAKENET=true
-      - POW_LEN=2
-      - COINBASE_TIMELOCK_MIN=0
+      - MINING_PKH=${MINING_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
+      - FAKENET=${FAKENET:-true}
+      - POW_LEN=${POW_LEN:-2}
+      - COINBASE_TIMELOCK_MIN=${COINBASE_TIMELOCK_MIN:-0}
+      - RUST_LOG=${RUST_LOG:-info}
     networks:
       - nockchain-fakenet
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
+
+volumes:
+  nockchain-data:
+    driver: local
+  nockchain-config:
+    driver: local
 
 networks:
   nockchain-fakenet:

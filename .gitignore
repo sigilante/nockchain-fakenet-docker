@@ -1,0 +1,41 @@
+# Data directories
+data/
+config/
+
+# Docker volumes
+.volumes/
+
+# Environment files (may contain sensitive keys)
+.env
+.env.local
+*.env
+
+# Private keys and wallets
+*.key
+*.pem
+wallets/
+*.wallet
+
+# Genesis files (can be regenerated)
+*.jam
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# Temporary files
+tmp/
+temp/
+*.tmp

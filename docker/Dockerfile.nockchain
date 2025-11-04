@@ -1,13 +1,85 @@
+# Multi-stage Dockerfile for building nockchain from source
+# This eliminates the need to mount host binaries
+
+# ==============================================================================
+# Stage 1: Builder - Build nockchain and nockchain-wallet from source
+# ==============================================================================
+FROM ubuntu:22.04 AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    clang \
+    llvm-dev \
+    libclang-dev \
+    make \
+    protobuf-compiler \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Set working directory
+WORKDIR /build
+
+# Clone nockchain repository
+ARG NOCKCHAIN_VERSION=master
+RUN git clone https://github.com/zorp-corp/nockchain.git . && \
+    git checkout ${NOCKCHAIN_VERSION}
+
+# Build hoonc (Hoon compiler)
+RUN cargo install --locked --force --path crates/hoonc --bin hoonc
+
+# Build Hoon assets (.jam files)
+RUN make build-hoon-all
+
+# Build nockchain and nockchain-wallet binaries
+RUN cargo build --release --bin nockchain --bin nockchain-wallet
+
+# ==============================================================================
+# Stage 2: Runtime - Minimal image with only necessary components
+# ==============================================================================
 FROM ubuntu:22.04
 
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     jq \
     netcat \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /data /config
+# Create non-root user for security
+RUN useradd -m -u 1000 -s /bin/bash nockchain
 
+# Create necessary directories
+RUN mkdir -p /data /config /assets && \
+    chown -R nockchain:nockchain /data /config /assets
+
+# Copy binaries from builder stage
+COPY --from=builder /build/target/release/nockchain /usr/local/bin/nockchain
+COPY --from=builder /build/target/release/nockchain-wallet /usr/local/bin/nockchain-wallet
+
+# Copy Hoon assets from builder stage
+COPY --from=builder /build/crates/nockchain/assets/*.jam /assets/
+COPY --from=builder /build/crates/nockchain-wallet/assets/*.jam /assets/
+
+# Ensure binaries are executable
+RUN chmod +x /usr/local/bin/nockchain /usr/local/bin/nockchain-wallet
+
+# Switch to non-root user
+USER nockchain
+
+# Set working directory
+WORKDIR /data
+
+# Expose ports
 EXPOSE 8545 8546 30303 5555
 
+# Default command
 CMD ["/usr/local/bin/nockchain", "--mine", "--fakenet"]
