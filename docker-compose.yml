@@ -5,8 +5,6 @@ services:
       dockerfile: docker/Dockerfile.nockchain
     container_name: nockchain-fakenet
     volumes:
-      - ${HOME}/.cargo/bin/nockchain:/usr/local/bin/nockchain:ro
-      - ${HOME}/.cargo/bin/nockchain-wallet:/usr/local/bin/nockchain-wallet:ro
       - ./data:/data
       - ./config:/config
       - ./config/genesis/fakenet-pkh9yPe-pow2-bex1.jam:/genesis.jam:ro

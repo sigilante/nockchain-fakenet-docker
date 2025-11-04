@@ -1,13 +1,31 @@
 FROM ubuntu:22.04
 
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    git \
     jq \
     netcat \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
+# Install nockup and check where it went
+RUN curl -fsSL https://raw.githubusercontent.com/sigilante/nockup/master/install.sh | bash && \
+    # find /root -name "nockup" -type f 2>/dev/null || \
+    # find /usr -name "nockup" -type f 2>/dev/null || \
+    # find /home -name "nockup" -type f 2>/dev/null || \
+    which nockup
+
+# The install script might add to .bashrc, so source it
+RUN echo "source ~/.bashrc" >> ~/.profile
+RUN find / -name "*nockup*"
+
+# Install nockchain via nockup
+RUN bash -lc "nockup install"
+
+# Create data directories
 RUN mkdir -p /data /config
 
 EXPOSE 8545 8546 30303 5555
 
-CMD ["/usr/local/bin/nockchain", "--mine", "--fakenet"]
+CMD ["nockchain", "--mine", "--fakenet"]
