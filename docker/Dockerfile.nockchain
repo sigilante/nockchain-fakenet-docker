@@ -123,5 +123,6 @@ WORKDIR /data
 # Expose ports
 EXPOSE 8545 8546 30303 5555
 
-# Default command - pass mining PKH from environment variable
-CMD ["/bin/sh", "-c", "/usr/local/bin/nockchain --mine --fakenet --mining-pkh=\"${MINING_PKH}\""]
+# Default command - pass mining PKH and bind to all interfaces for Docker access
+# Note: Bind to 0.0.0.0 to allow external connections from host
+CMD ["/bin/sh", "-c", "/usr/local/bin/nockchain --mine --fakenet --mining-pkh=\"${MINING_PKH}\" --bind-public-grpc-addr=0.0.0.0:5555"]
