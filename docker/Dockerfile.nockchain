@@ -46,10 +46,6 @@ WORKDIR /build/nockchain
 RUN git clone https://github.com/zorp-corp/nockchain.git . && \
     git checkout ${NOCKCHAIN_VERSION}
 
-# Patch main.rs to enable public gRPC server (hardcoded as disabled by default)
-RUN sed -i 's/NockchainAPIConfig::DisablePublicServer/NockchainAPIConfig::EnablePublicServer/g' crates/nockchain/src/main.rs && \
-    echo "Patched main.rs to enable public gRPC server"
-
 # Build hoonc (Hoon compiler) - needed for building Hoon assets
 RUN cargo install --locked --force --path crates/hoonc --bin hoonc
 

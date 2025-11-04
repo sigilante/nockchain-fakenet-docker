@@ -59,11 +59,10 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 4. Access the fakenet:
 
-    Nockchain uses **gRPC** for its API (not HTTP RPC). You can access the fakenet services at:
-    - **gRPC API**: `localhost:5555` (primary API for wallet operations and queries)
+    Nockchain uses **gRPC** for its API (not HTTP RPC). The fakenet services are accessible at:
     - P2P Network: `localhost:30303`
 
-    Note: The public gRPC server is enabled via a source code patch during the Docker build.
+    **Note:** The public gRPC API (port 5555) is currently **disabled** in the nockchain source code (`main.rs` hardcodes `DisablePublicServer`). The container runs and mines successfully, but the gRPC API is not accessible for external wallet operations or queries until this is fixed upstream.
 
 ## Using the Development CLI
 
@@ -142,18 +141,38 @@ docker-compose down -v
 - Example: `"5555:5555"` → `"15555:5555"`
 
 **gRPC API not responding:**
-- The public gRPC server is enabled via a source code patch during build
-- Check container logs: `docker-compose logs nockchain-node`
-- Look for `server_config=EnablePublicServer` in startup logs
-- Verify bind address shows `0.0.0.0:5555` not `127.0.0.1:5555`
+- The public gRPC server is currently **hardcoded as disabled** in nockchain source code
+- Check container logs: you will see `server_config=DisablePublicServer`
+- This is an upstream issue - see Technical Notes below
 
 ## Technical Notes
 
-### Public gRPC Server Patch
+### Public gRPC Server Status
 
-The nockchain source code hardcodes the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`). This Docker build automatically patches the source code to enable it (`EnablePublicServer`) so the API is accessible from outside the container.
+⚠️ **Known Limitation:** The nockchain source code currently hardcodes the public gRPC server as disabled in `crates/nockchain/src/main.rs`:
 
-Without this patch, the container would run and mine blocks but have no accessible API for wallet operations or blockchain queries.
+```rust
+nockchain::init_with_kernel(
+    cli,
+    KERNEL,
+    prover_hot_state.as_slice(),
+    NockchainAPIConfig::DisablePublicServer,  // Hardcoded!
+)
+```
+
+This means the gRPC API on port 5555 is not accessible even though:
+- The container runs successfully
+- Mining works correctly
+- The `--bind-public-grpc-addr` CLI flag exists but has no effect
+
+**Impact:** External wallet operations and blockchain queries via gRPC are not currently possible.
+
+**Solution:** This requires an upstream fix in the nockchain repository to either:
+1. Add a CLI flag to control this setting (e.g., `--enable-public-grpc`)
+2. Make it conditional based on `--fakenet` mode
+3. Enable it by default and add `--disable-public-grpc` flag instead
+
+A PR will be submitted to the nockchain maintainers to address this.
 
 ## Development
 
