@@ -28,9 +28,13 @@ RUN curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${P
     rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip" && \
     chmod +x /usr/local/bin/protoc
 
-# Install Rust
+# Install Rust (stable for nockchain, nightly for nockup)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install nightly toolchain (required by nockup)
+RUN rustup toolchain install nightly --profile minimal && \
+    rustup update nightly
 
 # ==============================================================================
 # Build nockchain ecosystem tools
