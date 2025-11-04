@@ -7,6 +7,8 @@ services:
         # Pin to specific versions or use 'master' for latest
         NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
         NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
+        # Protoc version (must be 3.15+ for proto3 optional fields)
+        PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
     container_name: nockchain-fakenet
     volumes:
       # Use named volumes for data persistence (no host dependencies)
