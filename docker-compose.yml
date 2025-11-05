@@ -1,22 +1,23 @@
 services:
-  nockchain-node:
+  # Mining node - produces blocks
+  nockchain-fakenet-miner:
     build:
       context: .
-      dockerfile: docker/Dockerfile.nockchain
+      dockerfile: docker/Dockerfile.nockchain-miner
       args:
         # Pin to specific versions or use 'master' for latest
         NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
         NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
         # Protoc version (must be 3.15+ for proto3 optional fields)
         PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
-    container_name: nockchain-fakenet
+    container_name: nockchain-fakenet-miner
     volumes:
       # Use named volumes for data persistence (no host dependencies)
-      - nockchain-data:/data
-      - nockchain-config:/config
+      - nockchain-miner-data:/data
+      - nockchain-miner-config:/config
     ports:
-      - "${GRPC_PORT:-5555}:5555"     # gRPC API (primary interface)
-      - "${P2P_PORT:-30303}:30303"    # P2P networking
+      - "${MINER_GRPC_PORT:-5555}:5555"     # gRPC API (primary interface)
+      - "${MINER_P2P_PORT:-30303}:30303"    # P2P networking
     environment:
       - MINING_PKH=${MINING_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       - FAKENET=${FAKENET:-true}
@@ -32,10 +33,48 @@ services:
       retries: 3
       start_period: 60s
 
+  # Non-mining node - for wallets, queries, etc.
+  nockchain-fakenet-node:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nockchain-node
+      args:
+        # Pin to specific versions or use 'master' for latest
+        NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
+        NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
+        # Protoc version (must be 3.15+ for proto3 optional fields)
+        PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
+    container_name: nockchain-fakenet-node
+    volumes:
+      # Use named volumes for data persistence (no host dependencies)
+      - nockchain-node-data:/data
+      - nockchain-node-config:/config
+    ports:
+      - "${NODE_GRPC_PORT:-5556}:5555"     # gRPC API (primary interface)
+      - "${NODE_P2P_PORT:-30304}:30303"    # P2P networking
+    environment:
+      - FAKENET=${FAKENET:-true}
+      - POW_LEN=${POW_LEN:-2}
+      - RUST_LOG=${RUST_LOG:-info}
+    networks:
+      - nockchain-fakenet
+    depends_on:
+      - nockchain-fakenet-miner
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
 volumes:
-  nockchain-data:
+  nockchain-miner-data:
     driver: local
-  nockchain-config:
+  nockchain-miner-config:
+    driver: local
+  nockchain-node-data:
+    driver: local
+  nockchain-node-config:
     driver: local
 
 networks:

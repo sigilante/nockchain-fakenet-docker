@@ -8,6 +8,9 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 ## Features
 
+- **Dual-node setup**: Separate mining and non-mining nodes
+  - **Miner Node**: Produces blocks and maintains consensus
+  - **Non-Mining Node**: For wallet operations, queries, and application development
 - **Self-contained build**: Builds entire nockchain ecosystem from source - no host dependencies required
   - `nockchain` - Main node binary
   - `nockchain-wallet` - Wallet management tool
@@ -54,16 +57,40 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
     ```bash
     docker-compose ps
-    docker-compose logs -f nockchain-node
+    docker-compose logs -f nockchain-fakenet-miner
+    docker-compose logs -f nockchain-fakenet-node
     ```
 
-4. Access the fakenet:
+5. Access the fakenet:
 
-    Nockchain uses **gRPC** for its API (not HTTP RPC). The fakenet services are accessible at:
-    - **gRPC API**: `localhost:5555` (for wallet operations and blockchain queries)
-    - P2P Network: `localhost:30303`
+    Nockchain uses **gRPC** for its API (not HTTP RPC). The fakenet runs two services:
+
+    **Miner Node** (produces blocks):
+    - **gRPC API**: `localhost:5555`
+    - **P2P Network**: `localhost:30303`
+
+    **Non-Mining Node** (for wallet operations):
+    - **gRPC API**: `localhost:5556` ← **Use this for wallet operations**
+    - **P2P Network**: `localhost:30304`
 
     **Note:** This build uses the `sigilante/nockchain` fork which has the public gRPC server enabled, allowing full API access.
+
+## Architecture
+
+This setup runs two nockchain nodes:
+
+1. **Mining Node** (`nockchain-fakenet-miner`):
+   - Runs with `--mine` flag
+   - Produces blocks and maintains the blockchain
+   - Receives mining rewards to the configured PKH
+
+2. **Non-Mining Node** (`nockchain-fakenet-node`):
+   - Runs without mining
+   - Connects to the miner node via P2P
+   - Ideal for wallet operations and queries
+   - Lower resource usage (no mining work)
+
+Both nodes share the same fakenet network and communicate via P2P to maintain consensus.
 
 ## Using the Development CLI
 
@@ -110,18 +137,23 @@ Configure the node via environment variables in `docker-compose.yml`:
 
 ## Data Persistence
 
-Data is stored in named Docker volumes:
+Data is stored in named Docker volumes (separate for miner and node):
 
 ```bash
 # List volumes
 docker volume ls | grep nockchain
 
 # Inspect a volume
-docker volume inspect nockchain-fakenet-docker_nockchain-data
+docker volume inspect nockchain-fakenet-docker_nockchain-miner-data
+docker volume inspect nockchain-fakenet-docker_nockchain-node-data
 
-# Backup data
-docker run --rm -v nockchain-fakenet-docker_nockchain-data:/data \
-  -v $(pwd)/backup:/backup ubuntu tar czf /backup/nockchain-data.tar.gz /data
+# Backup miner data
+docker run --rm -v nockchain-fakenet-docker_nockchain-miner-data:/data \
+  -v $(pwd)/backup:/backup ubuntu tar czf /backup/nockchain-miner-data.tar.gz /data
+
+# Backup node data
+docker run --rm -v nockchain-fakenet-docker_nockchain-node-data:/data \
+  -v $(pwd)/backup:/backup ubuntu tar czf /backup/nockchain-node-data.tar.gz /data
 
 # Remove all data (fresh start)
 docker-compose down -v
@@ -134,17 +166,24 @@ docker-compose down -v
 - Try pinning to a specific version tag in `docker-compose.yml`
 
 **Container exits immediately:**
-- Check logs: `docker-compose logs nockchain-node`
-- Verify health check: `docker inspect nockchain-fakenet`
+- Check miner logs: `docker-compose logs nockchain-fakenet-miner`
+- Check node logs: `docker-compose logs nockchain-fakenet-node`
+- Verify health check: `docker inspect nockchain-fakenet-miner`
 
 **Port already in use:**
-- Change port mappings in `docker-compose.yml`
-- Example: `"5555:5555"` → `"15555:5555"`
+- Change port mappings in `.env` or `docker-compose.yml`
+- Example in `.env`: `MINER_GRPC_PORT=15555` or `NODE_GRPC_PORT=15556`
 
 **gRPC API not responding:**
 - Check container logs: look for `server_config=EnablePublicServer`
 - Verify bind address shows `0.0.0.0:5555` not `127.0.0.1:5555`
-- Ensure port 5555 is not already in use on your host
+- Ensure ports 5555 and 5556 are not already in use on your host
+- Try connecting to the non-mining node at `localhost:5556` for wallet operations
+
+**Nodes not connecting to each other:**
+- Check if both containers are on the same Docker network: `docker network inspect nockchain-fakenet-docker_nockchain-fakenet`
+- Verify P2P ports are correctly mapped
+- Check logs for P2P connection messages
 
 ## Technical Notes
 
