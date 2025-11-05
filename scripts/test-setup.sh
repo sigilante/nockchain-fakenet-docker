@@ -49,6 +49,8 @@ docker exec nockchain-fakenet which nockup && echo -e "${GREEN}✓ nockup found$
 echo -e "\n${YELLOW}Test 5: Checking binary versions...${NC}"
 docker exec nockchain-fakenet nockchain --version 2>&1 || echo "nockchain version check failed"
 docker exec nockchain-fakenet nockchain-wallet --version 2>&1 || echo "nockchain-wallet version check failed"
+docker exec nockchain-fakenet hoon --version 2>&1 || echo "hoon version check failed"
+docker exec nockchain-fakenet hoonc --version 2>&1 || echo "hoonc version check failed"
 docker exec nockchain-fakenet nockup --version 2>&1 || echo "nockup version check failed"
 
 # Test 6: Wait for service to be ready
