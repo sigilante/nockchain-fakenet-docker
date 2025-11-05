@@ -24,13 +24,6 @@ echo ""
 derive_wallet() {
     local index=$1
 
-    # If index is 0, use the master PKH directly
-    if [ "$index" -eq 0 ]; then
-        echo "Using master PKH (index 0): $FAKENET_MASTER_PKH"
-        echo "$FAKENET_MASTER_PKH"
-        return 0
-    fi
-
     echo "Step 1: Importing seed phrase..."
     nockchain-wallet import-keys \
         --seedphrase "$FAKENET_SEEDPHRASE" \
@@ -64,44 +57,52 @@ derive_wallet() {
 # Derive the wallet for this container's index
 echo "Deriving wallet..."
 DERIVED_PKH=$(derive_wallet "$CHILD_KEY_INDEX")
+
+# Trim any whitespace from PKH
+DERIVED_PKH=$(echo "$DERIVED_PKH" | tr -d '[:space:]')
+
 echo ""
 echo "Successfully derived PKH: $DERIVED_PKH"
+echo "PKH length: ${#DERIVED_PKH}"
 echo "=========================================="
 echo ""
 
-# Build nockchain command based on whether this is a mining node
+# Build nockchain command as an array to avoid quoting issues
+NOCKCHAIN_ARGS=(
+    "--fakenet"
+    "--bind-public-grpc-addr=0.0.0.0:5555"
+    "--no-default-peers"
+    "--bind"
+    "/ip4/0.0.0.0/udp/30303/quic-v1"
+)
+
 if [ "${ENABLE_MINING:-false}" = "true" ]; then
     echo "Starting nockchain in MINING mode..."
-    NOCKCHAIN_CMD="nockchain \
-        --mine \
-        --fakenet \
-        --mining-pkh=\"$DERIVED_PKH\" \
-        --bind-public-grpc-addr=0.0.0.0:5555 \
-        --no-default-peers \
-        --bind /ip4/0.0.0.0/udp/30303/quic-v1"
+    echo "Mining PKH: $DERIVED_PKH"
+    NOCKCHAIN_ARGS+=(
+        "--mine"
+        "--mining-pkh=$DERIVED_PKH"
+    )
 else
     echo "Starting nockchain in NON-MINING mode..."
-    NOCKCHAIN_CMD="nockchain \
-        --fakenet \
-        --bind-public-grpc-addr=0.0.0.0:5555 \
-        --no-default-peers \
-        --bind /ip4/0.0.0.0/udp/30303/quic-v1"
-
     # Add peer connection if PEER_MULTIADDR is set
     if [ -n "${PEER_MULTIADDR}" ]; then
-        NOCKCHAIN_CMD="$NOCKCHAIN_CMD --peer \"$PEER_MULTIADDR\""
+        NOCKCHAIN_ARGS+=(
+            "--peer"
+            "$PEER_MULTIADDR"
+        )
     fi
 fi
 
 # Add any additional arguments passed to the container
 if [ $# -gt 0 ]; then
-    NOCKCHAIN_CMD="$NOCKCHAIN_CMD $@"
+    NOCKCHAIN_ARGS+=("$@")
 fi
 
-echo "Command: $NOCKCHAIN_CMD"
+echo "Command: nockchain ${NOCKCHAIN_ARGS[*]}"
 echo ""
 echo "=========================================="
 echo ""
 
-# Execute nockchain
-exec bash -c "$NOCKCHAIN_CMD"
+# Execute nockchain with proper argument array
+exec nockchain "${NOCKCHAIN_ARGS[@]}"
