@@ -92,6 +92,32 @@ This setup runs two nockchain nodes:
 
 Both nodes share the same fakenet network and communicate via P2P to maintain consensus.
 
+## Verifying P2P Connectivity
+
+To check if your miner and node are successfully communicating:
+
+```bash
+# Quick automated check
+./scripts/check-p2p.sh
+```
+
+This script will verify:
+- Both containers are running
+- Network connectivity between containers
+- Peer connection messages in logs
+- Block synchronization status
+
+For detailed verification steps and troubleshooting, see: [docs/verifying-p2p-connectivity.md](docs/verifying-p2p-connectivity.md)
+
+**Quick manual check:**
+```bash
+# Watch both nodes in real-time (use two terminals)
+docker-compose logs -f nockchain-fakenet-miner
+docker-compose logs -f nockchain-fakenet-node
+
+# Look for peer connection and block propagation messages
+```
+
 ## Using the Development CLI
 
 The `scripts/nockapp-cli` tool provides convenient commands for development:
