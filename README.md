@@ -8,8 +8,6 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 * Needs improvement: Automated verification of P2P connectivity between miner and non-mining node. See [Verifying P2P Connectivity](#verifying-p2p-connectivity) for manual steps.
 
-* Needs automatic generation of initial wallets and funding on startup. Currently requires manual wallet creation and funding via CLI. See [Using the Development CLI](#using-the-development-cli) for commands.
-
 ![](./img/hero.png)
 
 ## Features
@@ -27,6 +25,7 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 - **Named volumes**: Persistent data storage without host filesystem coupling
 - **Development CLI**: Helper scripts for wallet management, mining, and checkpoints
 - **Security**: Runs as non-root user inside container
+- **Serial PKHs**: Easy wallet management with master and child keys for multiple nodes (see [Automated Wallet Configuration](#automated-wallet-configuration))
 
 ## Prerequisites
 
