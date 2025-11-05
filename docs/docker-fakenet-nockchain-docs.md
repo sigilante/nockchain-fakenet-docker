@@ -280,14 +280,48 @@ cd my-nockapp
 # Edit src/my-nockapp.hoon
 ```
 
-### 3. Deploy to Fakenet
+### 3. Build Your NockApp
 
 ```bash
-# Deploy via the non-mining node
-nockup deploy --endpoint http://localhost:5556 --fakenet
+# Build the NockApp with nockup
+nockup build
+
+# This generates compiled artifacts in your project directory
 ```
 
-### 4. Test and Query
+### 4. Deploy to Fakenet
+
+Currently, NockApp deployment requires manually copying files to the container and using nockchain commands directly:
+
+```bash
+# Copy your NockApp artifacts to the container
+docker cp ./build/my-nockapp.jam nockchain-fakenet-node:/tmp/
+
+# Deploy using nockchain (exact command syntax may vary - see nockchain documentation)
+docker exec -it nockchain-fakenet-node nockchain deploy \
+  --nockapp /tmp/my-nockapp.jam \
+  --fakenet
+```
+
+**Note:** The `nockup deploy` command is not yet available. Consult the nockchain documentation for the current deployment method.
+
+Alternatively, mount your NockApp directory as a volume in `docker-compose.yml`:
+
+```yaml
+nockchain-fakenet-node:
+  volumes:
+    - ./my-nockapp:/nockapp:ro
+```
+
+Then deploy from the mounted path:
+
+```bash
+docker exec -it nockchain-fakenet-node nockchain deploy \
+  --nockapp /nockapp/build/my-nockapp.jam \
+  --fakenet
+```
+
+### 5. Test and Query
 
 ```bash
 # Query your NockApp via gRPC
@@ -298,7 +332,7 @@ grpcurl -plaintext \
   127.0.0.1:5556 nockchain.public.v2.NockchainService/YourMethod
 ```
 
-### 5. Monitor Activity
+### 6. Monitor Activity
 
 ```bash
 # Watch miner logs
