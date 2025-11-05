@@ -2,7 +2,13 @@
 
 This repository contains a Docker Compose setup for running a local fakenet of Nockchain nodes. This setup is useful for NockApp application development, testing, and experimentation with Nockchain without needing to connect to the livenet.
 
-**Status:**  🚧 Work in Progress 🚧
+**Status:**  Working fakenet nodes.
+
+* Upstream Nockchain distribution zorp-corp/nockchain currently has the public gRPC server disabled by default, making wallet operations and queries inaccessible from outside the node. This Docker setup uses a forked version sigilante/nockchain which enables the public gRPC server, allowing full API access. See [Technical Notes](#technical-notes) for details.
+
+* Needs improvement: Automated verification of P2P connectivity between miner and non-mining node. See [Verifying P2P Connectivity](#verifying-p2p-connectivity) for manual steps.
+
+* Needs automatic generation of initial wallets and funding on startup. Currently requires manual wallet creation and funding via CLI. See [Using the Development CLI](#using-the-development-cli) for commands.
 
 ![](./img/hero.png)
 
