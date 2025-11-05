@@ -142,6 +142,41 @@ nockchain-node-3:
 
 **Note:** Child index 0 is skipped to avoid confusion with the master key. Additional nodes start with index 1, 2, 3, etc.
 
+## Scaling to Multiple Nodes
+
+Need more nodes? We provide helper scripts to easily scale your fakenet:
+
+### Quick Method: Auto-Generate Nodes
+
+```bash
+# Add 3 additional nodes (child indices 1, 2, 3)
+./scripts/add-nodes.sh 3
+
+# Start all services
+docker-compose up -d
+```
+
+This creates `docker-compose.override.yml` with:
+- **nockchain-node-2**: Child key 1, ports 5557/30305
+- **nockchain-node-3**: Child key 2, ports 5558/30306
+- **nockchain-node-4**: Child key 3, ports 5559/30307
+
+Each gets a unique wallet derived from the fakenet seed phrase.
+
+### Dynamic Method: Spin Up Individual Nodes
+
+```bash
+# Quick one-off nodes for testing
+./scripts/run-node.sh 1        # Node with child key 1
+./scripts/run-node.sh 2 5558   # Node with child key 2, custom port
+```
+
+**See [docs/scaling-nodes.md](docs/scaling-nodes.md) for complete guide** including:
+- Manual docker-compose configuration
+- Port allocation strategies
+- Wallet derivation details
+- Troubleshooting multi-node setups
+
 ## Verifying P2P Connectivity
 
 To check if your miner and node are successfully communicating:
