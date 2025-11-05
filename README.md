@@ -108,34 +108,39 @@ The nodes are pre-configured with explicit peer connections:
 
 This configuration ensures the nodes discover and connect to each other immediately on startup, even in an isolated Docker environment.
 
-### Automated Wallet Derivation
+### Automated Wallet Configuration
 
-Each node automatically derives its wallet from the standard fakenet seed phrase using BIP39 key derivation:
+The setup uses the standard fakenet credentials with smart wallet management:
 
 **Standard Fakenet Credentials:**
 ```
 Seed Phrase: farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice
-Master PKH (index 0): 9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV
+Master PKH: 9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV
 ```
 
-**Automatic Derivation:**
-- **Miner Node**: Uses child key index 0 (master key)
-- **Non-Mining Node**: Uses child key index 1 (first derived child)
+**Default Wallet Configuration:**
+- **Miner Node**: Uses master PKH (no derivation needed)
+- **First Non-Mining Node**: Also uses master PKH (shares wallet with miner)
+- **Additional Nodes**: Derive unique child keys starting from index 1
 
-Each container runs an entrypoint script that:
-1. Imports the seed phrase using `nockchain-wallet import-keys`
-2. Derives the child key at the specified index using `nockchain-wallet derive-child`
-3. Extracts the PKH and passes it to nockchain
+This approach allows the miner and first node to share the same wallet for convenience, while additional nodes get their own unique wallets.
 
-**Adding More Nodes:**
-Simply increment the `CHILD_KEY_INDEX` for each new node:
+**Adding More Nodes with Unique Wallets:**
 ```yaml
 nockchain-node-2:
   environment:
-    - CHILD_KEY_INDEX=2  # Gets wallet at index 2
+    - USE_MASTER_PKH=false        # Enable child key derivation
+    - CHILD_KEY_INDEX=1            # First child key (we skip index 0)
+    - FAKENET_SEEDPHRASE=farm...   # Standard seed phrase
+
+nockchain-node-3:
+  environment:
+    - USE_MASTER_PKH=false
+    - CHILD_KEY_INDEX=2            # Second child key
+    - FAKENET_SEEDPHRASE=farm...
 ```
 
-This ensures each node has its own unique, reproducible wallet derived from the same seed phrase.
+**Note:** Child index 0 is skipped to avoid confusion with the master key. Additional nodes start with index 1, 2, 3, etc.
 
 ## Verifying P2P Connectivity
 

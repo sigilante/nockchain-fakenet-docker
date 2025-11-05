@@ -19,8 +19,8 @@ services:
       - "${MINER_GRPC_PORT:-5555}:5555"     # gRPC API (primary interface)
       - "${MINER_P2P_PORT:-30303}:30303"    # P2P networking
     environment:
-      # Wallet derivation settings
-      - CHILD_KEY_INDEX=${MINER_CHILD_KEY_INDEX:-0}
+      # Wallet settings - miner uses master PKH
+      - USE_MASTER_PKH=true
       - FAKENET_SEEDPHRASE=${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}
       - FAKENET_MASTER_PKH=${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings
@@ -57,8 +57,8 @@ services:
       - "${NODE_GRPC_PORT:-5556}:5555"     # gRPC API (primary interface)
       - "${NODE_P2P_PORT:-30304}:30303"    # P2P networking
     environment:
-      # Wallet derivation settings
-      - CHILD_KEY_INDEX=${NODE_CHILD_KEY_INDEX:-1}
+      # Wallet settings - first node also uses master PKH (same as miner)
+      - USE_MASTER_PKH=true
       - FAKENET_SEEDPHRASE=${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}
       - FAKENET_MASTER_PKH=${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings

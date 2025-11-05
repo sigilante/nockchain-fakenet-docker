@@ -5,7 +5,8 @@
 set -e
 
 # Default values
-CHILD_KEY_INDEX="${CHILD_KEY_INDEX:-0}"
+USE_MASTER_PKH="${USE_MASTER_PKH:-false}"
+CHILD_KEY_INDEX="${CHILD_KEY_INDEX:-1}"
 FAKENET_SEEDPHRASE="${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}"
 FAKENET_MASTER_PKH="${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}"
 WALLET_DATA_DIR="${WALLET_DATA_DIR:-/data/.nockchain-wallet}"
@@ -14,8 +15,9 @@ WALLET_DATA_DIR="${WALLET_DATA_DIR:-/data/.nockchain-wallet}"
 mkdir -p "$WALLET_DATA_DIR"
 
 echo "=========================================="
-echo "Nockchain Wallet Derivation"
+echo "Nockchain Wallet Configuration"
 echo "=========================================="
+echo "Use Master PKH: $USE_MASTER_PKH"
 echo "Child Key Index: $CHILD_KEY_INDEX"
 echo "Wallet Data Dir: $WALLET_DATA_DIR"
 echo ""
@@ -54,12 +56,17 @@ derive_wallet() {
     echo "$pkh"
 }
 
-# Derive the wallet for this container's index
-echo "Deriving wallet..."
-DERIVED_PKH=$(derive_wallet "$CHILD_KEY_INDEX")
-
-# Trim any whitespace from PKH
-DERIVED_PKH=$(echo "$DERIVED_PKH" | tr -d '[:space:]')
+# Determine which PKH to use
+if [ "$USE_MASTER_PKH" = "true" ]; then
+    echo "Using master PKH (no derivation)..."
+    DERIVED_PKH="$FAKENET_MASTER_PKH"
+    echo "Master PKH: $DERIVED_PKH"
+else
+    echo "Deriving wallet from child key index $CHILD_KEY_INDEX..."
+    DERIVED_PKH=$(derive_wallet "$CHILD_KEY_INDEX")
+    # Trim any whitespace from PKH
+    DERIVED_PKH=$(echo "$DERIVED_PKH" | tr -d '[:space:]')
+fi
 
 echo ""
 echo "Successfully derived PKH: $DERIVED_PKH"
