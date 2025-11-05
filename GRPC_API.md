@@ -12,55 +12,63 @@ Failed to list services: server does not support the reflection API
 - Your sigilante/nockchain fork is working correctly
 - The server just doesn't have gRPC reflection enabled
 
-## Finding Proto Files
+## Working with the gRPC API
 
-The gRPC API requires `.proto` files to know what services are available. Here's how to find them:
+### Proto Files Location
 
-### Method 1: Extract from Running Container
-
-```bash
-# Find proto files in the container
-docker exec nockchain-fakenet find /build/nockchain -name "*.proto" 2>/dev/null
-
-# Or check common locations
-docker exec nockchain-fakenet ls -la /build/nockchain/proto/
-docker exec nockchain-fakenet ls -la /build/nockchain/crates/nockapp-grpc/proto/
+The proto files are included in the sigilante/nockchain repository at:
+```
+crates/nockapp-grpc-proto/proto/nockchain/
+├── common/v1/
+│   ├── blockchain.proto
+│   ├── pagination.proto
+│   └── primitives.proto
+├── common/v2/
+│   └── blockchain.proto
+├── public/v1/
+│   └── nockchain.proto
+├── public/v2/
+│   └── nockchain.proto (current version)
+├── private/v1/
+│   └── nockapp.proto
+└── monitoring/v1/
+    └── monitoring.proto
 ```
 
-### Method 2: Get from Repository
+### Using grpcurl
+
+**Important:** The proto files have imports, so you must:
+1. Set the import path to the proto root directory
+2. Reference the proto file with its full path from that root
 
 ```bash
-# Clone the sigilante/nockchain fork
-git clone https://github.com/sigilante/nockchain.git
-cd nockchain
-
-# Find all proto files
-find . -name "*.proto"
-```
-
-Common locations in nockchain:
-- `crates/nockapp-grpc/proto/`
-- `proto/nockchain/`
-- `crates/nockchain/proto/`
-
-## Using grpcurl with Proto Files
-
-Once you have the proto files:
-
-```bash
-# List services with proto files
+# List available services
 grpcurl -plaintext \
-  -import-path ./path/to/proto \
-  -proto nockchain.proto \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
   127.0.0.1:5555 list
+
+# List methods in the service
+grpcurl -plaintext \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
+  127.0.0.1:5555 list nockchain.public.v2.NockchainService
+
+# Describe the service (see all method signatures)
+grpcurl -plaintext \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
+  127.0.0.1:5555 describe nockchain.public.v2.NockchainService
 
 # Call a specific method
 grpcurl -plaintext \
-  -import-path ./path/to/proto \
-  -proto nockchain.proto \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
   -d '{"your": "request"}' \
-  127.0.0.1:5555 package.Service/Method
+  127.0.0.1:5555 nockchain.public.v2.NockchainService/MethodName
 ```
+
+**Note:** Server reflection is NOT enabled, so proto files are required.
 
 ## Alternative: Use Postman or BloomRPC
 
