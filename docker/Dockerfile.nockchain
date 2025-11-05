@@ -41,9 +41,10 @@ RUN rustup toolchain install nightly --profile minimal && \
 # ==============================================================================
 
 # Clone nockchain repository
+# Using sigilante/nockchain fork with public gRPC server enabled
 ARG NOCKCHAIN_VERSION=master
 WORKDIR /build/nockchain
-RUN git clone https://github.com/zorp-corp/nockchain.git . && \
+RUN git clone https://github.com/sigilante/nockchain.git . && \
     git checkout ${NOCKCHAIN_VERSION}
 
 # Build hoonc (Hoon compiler) - needed for building Hoon assets

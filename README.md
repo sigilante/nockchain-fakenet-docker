@@ -60,9 +60,10 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 4. Access the fakenet:
 
     Nockchain uses **gRPC** for its API (not HTTP RPC). The fakenet services are accessible at:
+    - **gRPC API**: `localhost:5555` (for wallet operations and blockchain queries)
     - P2P Network: `localhost:30303`
 
-    **Note:** The public gRPC API (port 5555) is currently **disabled** in the nockchain source code (`main.rs` hardcodes `DisablePublicServer`). The container runs and mines successfully, but the gRPC API is not accessible for external wallet operations or queries until this is fixed upstream.
+    **Note:** This build uses the `sigilante/nockchain` fork which has the public gRPC server enabled, allowing full API access.
 
 ## Using the Development CLI
 
@@ -141,38 +142,24 @@ docker-compose down -v
 - Example: `"5555:5555"` → `"15555:5555"`
 
 **gRPC API not responding:**
-- The public gRPC server is currently **hardcoded as disabled** in nockchain source code
-- Check container logs: you will see `server_config=DisablePublicServer`
-- This is an upstream issue - see Technical Notes below
+- Check container logs: look for `server_config=EnablePublicServer`
+- Verify bind address shows `0.0.0.0:5555` not `127.0.0.1:5555`
+- Ensure port 5555 is not already in use on your host
 
 ## Technical Notes
 
-### Public gRPC Server Status
+### Repository Source
 
-⚠️ **Known Limitation:** The nockchain source code currently hardcodes the public gRPC server as disabled in `crates/nockchain/src/main.rs`:
+This Docker build currently uses **`sigilante/nockchain`** instead of the upstream `zorp-corp/nockchain` repository.
 
-```rust
-nockchain::init_with_kernel(
-    cli,
-    KERNEL,
-    prover_hot_state.as_slice(),
-    NockchainAPIConfig::DisablePublicServer,  // Hardcoded!
-)
-```
+**Why?** The upstream nockchain hardcodes the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. The `sigilante/nockchain` fork includes a fix that enables the public gRPC server, allowing full API functionality.
 
-This means the gRPC API on port 5555 is not accessible even though:
-- The container runs successfully
-- Mining works correctly
-- The `--bind-public-grpc-addr` CLI flag exists but has no effect
+**What's different?**
+- Public gRPC server is enabled (uses `EnablePublicServer`)
+- The `--bind-public-grpc-addr` flag now works correctly
+- External wallet operations and blockchain queries are accessible
 
-**Impact:** External wallet operations and blockchain queries via gRPC are not currently possible.
-
-**Solution:** This requires an upstream fix in the nockchain repository to either:
-1. Add a CLI flag to control this setting (e.g., `--enable-public-grpc`)
-2. Make it conditional based on `--fakenet` mode
-3. Enable it by default and add `--disable-public-grpc` flag instead
-
-A PR will be submitted to the nockchain maintainers to address this.
+**Future plans:** Once a PR with these changes is merged into `zorp-corp/nockchain`, this Dockerfile will be updated to use the upstream repository again.
 
 ## Development
 
@@ -190,4 +177,5 @@ docker-compose up -d --build
 
 - [Nockchain Documentation](https://docs.nockchain.org/)
 - [NockApp Development and Testing](https://docs.nockchain.org/nockapp/what-is-nockapp/development-and-testing)
-- [Nockchain GitHub Repository](https://github.com/zorp-corp/nockchain)
+- [Nockchain GitHub Repository (upstream)](https://github.com/zorp-corp/nockchain)
+- [Nockchain Fork with gRPC enabled (currently used)](https://github.com/sigilante/nockchain)
