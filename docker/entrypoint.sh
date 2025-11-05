@@ -11,6 +11,13 @@ FAKENET_SEEDPHRASE="${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august 
 FAKENET_MASTER_PKH="${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}"
 WALLET_DATA_DIR="${WALLET_DATA_DIR:-/data/.nockchain-wallet}"
 
+# Fakenet configuration parameters
+FAKENET_COINBASE_TIMELOCK_MIN="${FAKENET_COINBASE_TIMELOCK_MIN:-0}"
+FAKENET_V1_PHASE="${FAKENET_V1_PHASE:-1}"
+FAKENET_POW_LEN="${FAKENET_POW_LEN:-64}"
+FAKENET_LOG_DIFFICULTY="${FAKENET_LOG_DIFFICULTY:-5}"
+FAKENET_GENESIS_JAM_PATH="${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-64-bex-5.jam}"
+
 # Ensure wallet data directory exists
 mkdir -p "$WALLET_DATA_DIR"
 
@@ -81,6 +88,16 @@ NOCKCHAIN_ARGS=(
     "--no-default-peers"
     "--bind"
     "/ip4/0.0.0.0/udp/30303/quic-v1"
+    "--fakenet-coinbase-timelock-min"
+    "$FAKENET_COINBASE_TIMELOCK_MIN"
+    "--fakenet-v1-phase"
+    "$FAKENET_V1_PHASE"
+    "--fakenet-pow-len"
+    "$FAKENET_POW_LEN"
+    "--fakenet-log-difficulty"
+    "$FAKENET_LOG_DIFFICULTY"
+    "--fakenet-genesis-jam-path"
+    "$FAKENET_GENESIS_JAM_PATH"
 )
 
 if [ "${ENABLE_MINING:-false}" = "true" ]; then
