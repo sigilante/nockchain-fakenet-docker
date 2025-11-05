@@ -1,0 +1,110 @@
+# Nockchain gRPC API Guide
+
+## ✅ Server Status
+
+If you see this error when running `grpcurl`:
+```
+Failed to list services: server does not support the reflection API
+```
+
+**This is GOOD NEWS!** It means:
+- The gRPC server IS responding
+- Your sigilante/nockchain fork is working correctly
+- The server just doesn't have gRPC reflection enabled
+
+## Working with the gRPC API
+
+### Proto Files Location
+
+The proto files are included in the sigilante/nockchain repository at:
+```
+crates/nockapp-grpc-proto/proto/nockchain/
+├── common/v1/
+│   ├── blockchain.proto
+│   ├── pagination.proto
+│   └── primitives.proto
+├── common/v2/
+│   └── blockchain.proto
+├── public/v1/
+│   └── nockchain.proto
+├── public/v2/
+│   └── nockchain.proto (current version)
+├── private/v1/
+│   └── nockapp.proto
+└── monitoring/v1/
+    └── monitoring.proto
+```
+
+### Using grpcurl
+
+**Important:** The proto files have imports, so you must:
+1. Set the import path to the proto root directory
+2. Reference the proto file with its full path from that root
+
+```bash
+# List available services
+grpcurl -plaintext \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
+  127.0.0.1:5555 list
+
+# List methods in the service
+grpcurl -plaintext \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
+  127.0.0.1:5555 list nockchain.public.v2.NockchainService
+
+# Describe the service (see all method signatures)
+grpcurl -plaintext \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
+  127.0.0.1:5555 describe nockchain.public.v2.NockchainService
+
+# Call a specific method
+grpcurl -plaintext \
+  -import-path crates/nockapp-grpc-proto/proto \
+  -proto nockchain/public/v2/nockchain.proto \
+  -d '{"your": "request"}' \
+  127.0.0.1:5555 nockchain.public.v2.NockchainService/MethodName
+```
+
+**Note:** Server reflection is NOT enabled, so proto files are required.
+
+## Alternative: Use Postman or BloomRPC
+
+If grpcurl is too complicated, use a GUI tool:
+
+1. **Postman** - Has built-in gRPC support
+2. **BloomRPC** - Open source gRPC GUI client
+3. **Kreya** - Modern API client with gRPC support
+
+Just point them to `127.0.0.1:5555` and import the proto files.
+
+## Verifying Server is Running
+
+```bash
+# Check if port is open
+nc -zv 127.0.0.1 5555
+
+# Or with netstat inside container
+docker exec nockchain-fakenet netstat -tulpn | grep 5555
+
+# Check logs for gRPC server startup
+docker-compose logs nockchain-node | grep -i grpc
+docker-compose logs nockchain-node | grep "EnablePublicServer"
+```
+
+## Troubleshooting
+
+**"context deadline exceeded" on localhost:5555:**
+- Try `127.0.0.1:5555` instead of `localhost:5555`
+- Check if container is running: `docker-compose ps`
+- Check port mapping: `docker-compose port nockchain-node 5555`
+
+**Server appears to be down:**
+- Container might have crashed: `docker-compose logs nockchain-node`
+- Port might not be mapped: check `docker-compose.yml`
+
+**Still can't connect:**
+- Rebuild with fresh image: `docker-compose build --no-cache`
+- Verify you're using sigilante/nockchain fork
