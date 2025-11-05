@@ -108,6 +108,35 @@ The nodes are pre-configured with explicit peer connections:
 
 This configuration ensures the nodes discover and connect to each other immediately on startup, even in an isolated Docker environment.
 
+### Automated Wallet Derivation
+
+Each node automatically derives its wallet from the standard fakenet seed phrase using BIP39 key derivation:
+
+**Standard Fakenet Credentials:**
+```
+Seed Phrase: farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice
+Master PKH (index 0): 9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV
+```
+
+**Automatic Derivation:**
+- **Miner Node**: Uses child key index 0 (master key)
+- **Non-Mining Node**: Uses child key index 1 (first derived child)
+
+Each container runs an entrypoint script that:
+1. Imports the seed phrase using `nockchain-wallet import-keys`
+2. Derives the child key at the specified index using `nockchain-wallet derive-child`
+3. Extracts the PKH and passes it to nockchain
+
+**Adding More Nodes:**
+Simply increment the `CHILD_KEY_INDEX` for each new node:
+```yaml
+nockchain-node-2:
+  environment:
+    - CHILD_KEY_INDEX=2  # Gets wallet at index 2
+```
+
+This ensures each node has its own unique, reproducible wallet derived from the same seed phrase.
+
 ## Verifying P2P Connectivity
 
 To check if your miner and node are successfully communicating:
