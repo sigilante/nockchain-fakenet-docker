@@ -92,6 +92,16 @@ This setup runs two nockchain nodes:
 
 Both nodes share the same fakenet network and communicate via P2P to maintain consensus.
 
+### P2P Configuration
+
+The nodes are pre-configured with explicit peer connections:
+
+- **Both nodes** use `--no-default-peers` to prevent connection attempts to public backbone nodes
+- **Both nodes** bind to `/ip4/0.0.0.0/udp/30303/quic-v1` (QUIC over UDP)
+- **Non-mining node** explicitly connects to miner using `--peer /dns4/nockchain-fakenet-miner/udp/30303/quic-v1`
+
+This configuration ensures the nodes discover and connect to each other immediately on startup, even in an isolated Docker environment.
+
 ## Verifying P2P Connectivity
 
 To check if your miner and node are successfully communicating:

@@ -190,30 +190,41 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-### 4. Check if Nodes Need Explicit Peer Configuration
+### 4. Peer Configuration (Already Configured)
 
-Some blockchain nodes need explicit peer addresses. Check if nockchain supports:
-- `--bootnodes` flag
-- `--peer` or `--connect` flags
-- A config file with peer addresses
+The Docker images are pre-configured with explicit peer connections:
 
-You may need to configure the node to explicitly connect to the miner:
-
-```yaml
-# In docker-compose.yml, you might need to add:
-command: >
-  /bin/sh -c "/usr/local/bin/nockchain
-  --fakenet
-  --bind-public-grpc-addr=0.0.0.0:5555
-  --connect=nockchain-fakenet-miner:30303"
+**Miner configuration:**
+```bash
+nockchain --mine --fakenet \
+  --no-default-peers \
+  --bind /ip4/0.0.0.0/udp/30303/quic-v1
 ```
 
-### 5. Check Nockchain Documentation
+**Node configuration:**
+```bash
+nockchain --fakenet \
+  --no-default-peers \
+  --bind /ip4/0.0.0.0/udp/30303/quic-v1 \
+  --peer /dns4/nockchain-fakenet-miner/udp/30303/quic-v1
+```
 
-Nockchain may have specific P2P configuration requirements. Check:
-- `nockchain --help` for networking flags
-- Nockchain docs for network configuration
-- Example configurations in the nockchain repository
+Key flags:
+- `--no-default-peers`: Prevents connection attempts to public backbone nodes
+- `--bind`: Specifies the multiaddr to listen on (UDP port 30303 with QUIC)
+- `--peer`: Explicitly connects to the miner node using Docker DNS
+
+### 5. Nockchain P2P Flags Reference
+
+Available networking flags:
+- `--peer <MULTIADDR>`: Add peer to connect to (can be used multiple times)
+- `--force-peer <MULTIADDR>`: Force connection to specific peer
+- `--no-default-peers`: Skip default backbone nodes (essential for isolated fakenet)
+- `--bind <MULTIADDR>`: Bind to specific multiaddr (default: /ip4/0.0.0.0/udp/0/quic-v1)
+- `--max-established-incoming <N>`: Maximum incoming connections
+- `--max-established-outgoing <N>`: Maximum outgoing connections
+
+For a complete list, run: `docker exec nockchain-fakenet-miner nockchain --help`
 
 ## Automated Health Check
 
