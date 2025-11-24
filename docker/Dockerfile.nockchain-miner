@@ -124,6 +124,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Switch to non-root user
 USER nockchain
 
+# Add nockup bin directory to PATH for nockchain user
+ENV PATH="/home/nockchain/.nockup/bin:${PATH}"
+
 # Set working directory
 WORKDIR /data
 
