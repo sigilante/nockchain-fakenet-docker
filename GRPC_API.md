@@ -9,14 +9,14 @@ Failed to list services: server does not support the reflection API
 
 **This is GOOD NEWS!** It means:
 - The gRPC server IS responding
-- Your sigilante/nockchain fork is working correctly
+- Your nockchain node is working correctly
 - The server just doesn't have gRPC reflection enabled
 
 ## Working with the gRPC API
 
 ### Proto Files Location
 
-The proto files are included in the sigilante/nockchain repository at:
+The proto files are included in the nockchain/nockchain repository at:
 ```
 crates/nockapp-grpc-proto/proto/nockchain/
 ├── common/v1/
@@ -107,4 +107,4 @@ docker-compose logs nockchain-node | grep "EnablePublicServer"
 
 **Still can't connect:**
 - Rebuild with fresh image: `docker-compose build --no-cache`
-- Verify you're using sigilante/nockchain fork
+- Verify the container built successfully and `nockchain --help` lists `--bind-public-grpc-addr`

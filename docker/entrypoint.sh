@@ -12,11 +12,17 @@ FAKENET_MASTER_PKH="${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECB
 WALLET_DATA_DIR="${WALLET_DATA_DIR:-/data/.nockchain-wallet}"
 
 # Fakenet configuration parameters
-FAKENET_COINBASE_TIMELOCK_MIN="${FAKENET_COINBASE_TIMELOCK_MIN:-0}"
 FAKENET_V1_PHASE="${FAKENET_V1_PHASE:-1}"
 FAKENET_POW_LEN="${FAKENET_POW_LEN:-2}"
 FAKENET_LOG_DIFFICULTY="${FAKENET_LOG_DIFFICULTY:-1}"
 FAKENET_GENESIS_JAM_PATH="${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-2-bex-1.jam}"
+
+# Internal-only private gRPC port. nockchain always starts a private gRPC
+# listener (used by the standalone zk-pow-mine miner and other operator
+# tooling); it must differ from the public gRPC port below or the two binds
+# collide (0.0.0.0:5555 already reserves port 5555 on every interface,
+# including 127.0.0.1). Never published in docker-compose.yml.
+PRIVATE_GRPC_PORT="${PRIVATE_GRPC_PORT:-5554}"
 
 # Ensure wallet data directory exists
 mkdir -p "$WALLET_DATA_DIR"
@@ -85,11 +91,10 @@ echo ""
 NOCKCHAIN_ARGS=(
     "--fakenet"
     "--bind-public-grpc-addr=0.0.0.0:5555"
+    "--bind-private-grpc-port" "$PRIVATE_GRPC_PORT"
     "--no-default-peers"
     "--bind"
     "/ip4/0.0.0.0/udp/30303/quic-v1"
-    "--fakenet-coinbase-timelock-min"
-    "$FAKENET_COINBASE_TIMELOCK_MIN"
     "--fakenet-v1-phase"
     "$FAKENET_V1_PHASE"
     "--fakenet-pow-len"
@@ -100,14 +105,10 @@ NOCKCHAIN_ARGS=(
     "$FAKENET_GENESIS_JAM_PATH"
 )
 
-if [ "${ENABLE_MINING:-false}" = "true" ]; then
-    echo "Starting nockchain in MINING mode..."
-    echo "Mining PKH: $DERIVED_PKH"
-    NOCKCHAIN_ARGS+=(
-        "--mine"
-        "--mining-pkh=$DERIVED_PKH"
-    )
-else
+# nockchain no longer mines itself (no --mine/--mining-pkh flags exist on the
+# node binary). Mining is the standalone zk-pow-mine process, which connects
+# to this node's private gRPC and pokes solutions back.
+if [ "${ENABLE_MINING:-false}" != "true" ]; then
     echo "Starting nockchain in NON-MINING mode..."
     # Add peer connection if PEER_MULTIADDR is set
     if [ -n "${PEER_MULTIADDR}" ]; then
@@ -128,5 +129,58 @@ echo ""
 echo "=========================================="
 echo ""
 
-# Execute nockchain with proper argument array
-exec nockchain "${NOCKCHAIN_ARGS[@]}"
+if [ "${ENABLE_MINING:-false}" != "true" ]; then
+    exec nockchain "${NOCKCHAIN_ARGS[@]}"
+fi
+
+echo "Starting nockchain in MINING mode..."
+echo "Mining PKH: $DERIVED_PKH"
+
+# Mining requires two processes: the node, and zk-pow-mine pointed at its
+# private gRPC. Run the node in the background, wait for its private gRPC
+# to come up, then run the miner in the foreground - and tear both down
+# together if either one dies, so a stuck miner doesn't leave the container
+# looking healthy with no mining happening.
+nockchain "${NOCKCHAIN_ARGS[@]}" &
+NODE_PID=$!
+MINER_PID=""
+
+cleanup() {
+    kill "$NODE_PID" "$MINER_PID" 2>/dev/null || true
+    wait "$NODE_PID" "$MINER_PID" 2>/dev/null || true
+}
+trap cleanup TERM INT
+
+echo "Waiting for node's private gRPC on 127.0.0.1:$PRIVATE_GRPC_PORT..."
+until nc -z 127.0.0.1 "$PRIVATE_GRPC_PORT" 2>/dev/null; do
+    if ! kill -0 "$NODE_PID" 2>/dev/null; then
+        echo "ERROR: nockchain exited before its private gRPC came up"
+        exit 1
+    fi
+    sleep 1
+done
+
+# zk-pow-mine defaults to (num_cpus - 1) worker threads, each running a full
+# STARK-proving kernel instance. At fakenet's default --fakenet-pow-len 64
+# (mainnet-strength difficulty), that's memory-hungry enough to get OOM-killed
+# on a host CPU count that doesn't have proportionally large Docker memory
+# allocated to it (seen firsthand: 16 vCPUs visible -> 15 threads -> OOM in a
+# ~8GB Docker Desktop VM). Fakenet mining doesn't need max throughput, just
+# reliable block production, so default low and let it be tuned up.
+ZK_POW_MINE_THREADS="${ZK_POW_MINE_THREADS:-2}"
+
+echo "Starting zk-pow-mine against 127.0.0.1:$PRIVATE_GRPC_PORT (num-threads=$ZK_POW_MINE_THREADS)..."
+zk-pow-mine \
+    --node-addr "http://127.0.0.1:$PRIVATE_GRPC_PORT" \
+    --mining-pkh "$DERIVED_PKH" \
+    --num-threads "$ZK_POW_MINE_THREADS" &
+MINER_PID=$!
+
+# Exit as soon as either process exits, so Docker's restart policy can
+# recover instead of leaving a half-alive container.
+set +e
+wait -n "$NODE_PID" "$MINER_PID"
+EXIT_CODE=$?
+set -e
+cleanup
+exit "$EXIT_CODE"

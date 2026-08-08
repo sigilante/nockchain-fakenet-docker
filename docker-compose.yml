@@ -1,13 +1,13 @@
 services:
   # Mining node - produces blocks
   nockchain-fakenet-miner:
+    image: nockchain-fakenet-miner
     build:
       context: .
       dockerfile: docker/Dockerfile.nockchain-miner
       args:
         # Pin to specific versions or use 'master' for latest
         NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
-        NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
         # Protoc version (must be 3.15+ for proto3 optional fields)
         PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
     container_name: nockchain-fakenet-miner
@@ -24,16 +24,22 @@ services:
       - FAKENET_SEEDPHRASE=${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}
       - FAKENET_MASTER_PKH=${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings
-      - FAKENET_COINBASE_TIMELOCK_MIN=${FAKENET_COINBASE_TIMELOCK_MIN:-0}
       - FAKENET_V1_PHASE=${FAKENET_V1_PHASE:-1}
       - FAKENET_POW_LEN=${FAKENET_POW_LEN:-64}
       - FAKENET_LOG_DIFFICULTY=${FAKENET_LOG_DIFFICULTY:-5}
       - FAKENET_GENESIS_JAM_PATH=${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-64-bex-5.jam}
       - RUST_LOG=${RUST_LOG:-info}
+      # zk-pow-mine worker thread count. Each thread runs a full STARK-proving
+      # kernel instance; at this difficulty (--fakenet-pow-len 64) that's
+      # memory-hungry, and zk-pow-mine's own default (host CPUs - 1) can OOM
+      # a Docker Desktop VM that doesn't have proportionally large memory
+      # allocated to it. Raise this if you've given Docker more memory and
+      # want faster block production.
+      - ZK_POW_MINE_THREADS=${ZK_POW_MINE_THREADS:-2}
     networks:
       - nockchain-fakenet
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      test: ["CMD", "nc", "-z", "localhost", "5555"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -41,13 +47,13 @@ services:
 
   # Non-mining node - for wallets, queries, etc.
   nockchain-fakenet-node:
+    image: nockchain-fakenet-node
     build:
       context: .
       dockerfile: docker/Dockerfile.nockchain-node
       args:
         # Pin to specific versions or use 'master' for latest
         NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
-        NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
         # Protoc version (must be 3.15+ for proto3 optional fields)
         PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
     container_name: nockchain-fakenet-node
@@ -64,7 +70,6 @@ services:
       - FAKENET_SEEDPHRASE=${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}
       - FAKENET_MASTER_PKH=${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings
-      - FAKENET_COINBASE_TIMELOCK_MIN=${FAKENET_COINBASE_TIMELOCK_MIN:-0}
       - FAKENET_V1_PHASE=${FAKENET_V1_PHASE:-1}
       - FAKENET_POW_LEN=${FAKENET_POW_LEN:-64}
       - FAKENET_LOG_DIFFICULTY=${FAKENET_LOG_DIFFICULTY:-5}
@@ -75,7 +80,7 @@ services:
     depends_on:
       - nockchain-fakenet-miner
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      test: ["CMD", "nc", "-z", "localhost", "5555"]
       interval: 30s
       timeout: 10s
       retries: 3

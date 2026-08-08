@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Multi-stage Dockerfile for building nockchain from source
 # This eliminates the need to mount host binaries and builds all tools locally
 
@@ -28,30 +29,46 @@ RUN curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${P
     rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip" && \
     chmod +x /usr/local/bin/protoc
 
-# Install Rust (stable for nockchain, nightly for nockup)
+# Install Rust. The nockchain workspace pins its own toolchain via
+# rust-toolchain.toml (covers nockchain, nockup, and every other workspace
+# member alike), so rustup auto-installs it on first cargo invocation below -
+# the bootstrap channel here doesn't need to match.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Install nightly toolchain (required by nockup)
-RUN rustup toolchain install nightly --profile minimal && \
-    rustup update nightly
 
 # ==============================================================================
 # Build nockchain ecosystem tools
 # ==============================================================================
 
-# Clone nockchain repository
-# Using sigilante/nockchain fork with public gRPC server enabled
+# Fetch nockchain source as a tarball rather than `git clone`: git's HTTPS
+# transport on Debian/Ubuntu links against GnuTLS, which has proven flaky
+# against github.com from some networks ("GnuTLS recv error (-9)" mid-clone).
+# curl (OpenSSL-backed here) doesn't hit that, and a tarball is smaller than
+# even a shallow clone since it skips .git entirely.
 ARG NOCKCHAIN_VERSION=master
 WORKDIR /build/nockchain
-RUN git clone https://github.com/sigilante/nockchain.git . && \
-    git checkout ${NOCKCHAIN_VERSION}
+RUN curl -fsSL "https://github.com/nockchain/nockchain/archive/${NOCKCHAIN_VERSION}.tar.gz" -o /tmp/nockchain-src.tar.gz && \
+    tar xzf /tmp/nockchain-src.tar.gz --strip-components=1 -C . && \
+    rm /tmp/nockchain-src.tar.gz
+
+# Registry/git dependency caches for cargo below. This workspace pulls a few
+# dependencies straight from git (e.g. op-alloy-* from the entire
+# ethereum-optimism/optimism monorepo, submodules and all - a 10+ minute
+# fetch on its own), and a killed/retried RUN otherwise redoes that fetch
+# from zero since Docker only commits a layer once a RUN fully completes.
+# Cache mounts persist across retries even when the RUN itself doesn't.
+ARG CARGO_REGISTRY_CACHE=cargo-registry
+ARG CARGO_GIT_CACHE=cargo-git
 
 # Build hoonc (Hoon compiler) - needed for building Hoon assets
-RUN cargo install --locked --force --path crates/hoonc --bin hoonc
+RUN --mount=type=cache,target=/root/.cargo/registry,id=${CARGO_REGISTRY_CACHE} \
+    --mount=type=cache,target=/root/.cargo/git,id=${CARGO_GIT_CACHE} \
+    cargo install --locked --force --path crates/hoonc --bin hoonc
 
 # Build hoon (Hoon runtime/interpreter)
-RUN cargo build --release --bin hoon
+RUN --mount=type=cache,target=/root/.cargo/registry,id=${CARGO_REGISTRY_CACHE} \
+    --mount=type=cache,target=/root/.cargo/git,id=${CARGO_GIT_CACHE} \
+    cargo build --release --bin hoon
 
 # Build Hoon assets (.jam files) using the compiled hoonc
 RUN make build-hoon-all || echo "Warning: build-hoon-all failed, continuing anyway"
@@ -60,22 +77,17 @@ RUN make build-hoon-all || echo "Warning: build-hoon-all failed, continuing anyw
 RUN ls -la crates/nockchain/assets/ || echo "No nockchain assets directory" && \
     ls -la crates/nockchain-wallet/assets/ || echo "No nockchain-wallet assets directory"
 
-# Build nockchain and nockchain-wallet binaries
-RUN cargo build --release --bin nockchain --bin nockchain-wallet
-
-# ==============================================================================
-# Build nockup tool
-# ==============================================================================
-
-# Clone nockup repository
-ARG NOCKUP_VERSION=master
-WORKDIR /build/nockup
-RUN git clone https://github.com/sigilante/nockup.git . && \
-    git checkout ${NOCKUP_VERSION}
-
-# Build nockup with explicit nightly toolchain (override any rust-toolchain file)
-RUN rustup override set nightly && \
-    cargo build --release --bin nockup
+# Build nockchain, nockchain-wallet, and nockup binaries. nockup is a
+# workspace member of this same repo now (crates/nockup), not a separate
+# clone. target/ is cache-mounted too (this is the heaviest compile in the
+# build), so binaries are copied to a plain directory before the RUN ends -
+# cache-mounted paths don't persist into the image layer on their own.
+RUN --mount=type=cache,target=/root/.cargo/registry,id=${CARGO_REGISTRY_CACHE} \
+    --mount=type=cache,target=/root/.cargo/git,id=${CARGO_GIT_CACHE} \
+    --mount=type=cache,target=/build/nockchain/target,id=nockchain-base-target \
+    cargo build --release --bin nockchain --bin nockchain-wallet --bin nockup && \
+    mkdir -p /build/out && \
+    cp target/release/nockchain target/release/nockchain-wallet target/release/nockup /build/out/
 
 # ==============================================================================
 # Stage 2: Runtime - Minimal image with only necessary components
@@ -98,12 +110,15 @@ RUN useradd -m -u 1000 -s /bin/bash nockchain
 RUN mkdir -p /data /config /assets && \
     chown -R nockchain:nockchain /data /config /assets
 
-# Copy binaries from builder stage
-COPY --from=builder /build/nockchain/target/release/nockchain /usr/local/bin/nockchain
-COPY --from=builder /build/nockchain/target/release/nockchain-wallet /usr/local/bin/nockchain-wallet
+# Copy binaries from builder stage. nockchain/nockchain-wallet/nockup were
+# compiled with target/ cache-mounted (see above), so they were copied to
+# /build/out/ before that mount unmounted - only hoon and hoonc come
+# straight from their normal (non-cache-mounted) build outputs.
+COPY --from=builder /build/out/nockchain /usr/local/bin/nockchain
+COPY --from=builder /build/out/nockchain-wallet /usr/local/bin/nockchain-wallet
 COPY --from=builder /build/nockchain/target/release/hoon /usr/local/bin/hoon
 COPY --from=builder /root/.cargo/bin/hoonc /usr/local/bin/hoonc
-COPY --from=builder /build/nockup/target/release/nockup /usr/local/bin/nockup
+COPY --from=builder /build/out/nockup /usr/local/bin/nockup
 
 # Note: Hoon assets are not copied as they may be embedded in binaries
 # or not needed for fakenet mode. The make build-hoon-all step may have
@@ -125,6 +140,10 @@ WORKDIR /data
 # Expose ports
 EXPOSE 8545 8546 30303 5555
 
-# Default command - pass mining PKH and bind to all interfaces for Docker access
-# Note: Bind to 0.0.0.0 to allow external connections from host
-CMD ["/bin/sh", "-c", "/usr/local/bin/nockchain --mine --fakenet --mining-pkh=\"${MINING_PKH}\" --bind-public-grpc-addr=0.0.0.0:5555"]
+# Default command - bind to all interfaces for Docker access.
+# Note: nockchain no longer mines via --mine/--mining-pkh; mining is a
+# separate zk-pow-mine process pointed at this node's private gRPC. See
+# docker/Dockerfile.nockchain-miner and docker/entrypoint.sh for the actual
+# miner setup used by docker-compose.yml - this base file isn't referenced
+# by it.
+CMD ["/bin/sh", "-c", "/usr/local/bin/nockchain --fakenet --bind-public-grpc-addr=0.0.0.0:5555"]

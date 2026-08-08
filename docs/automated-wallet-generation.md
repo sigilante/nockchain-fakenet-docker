@@ -61,14 +61,19 @@ DERIVED_PKH=$(nockchain-wallet derive-child \
 
 echo "Derived PKH: $DERIVED_PKH"
 
-# Start nockchain with derived PKH
-exec nockchain \
-  --mine \
+# nockchain itself no longer takes --mine/--mining-pkh - start it, then point
+# a separate zk-pow-mine process at its private gRPC. See the actual
+# implementation in docker/entrypoint.sh.
+nockchain \
   --fakenet \
-  --mining-pkh="$DERIVED_PKH" \
   --bind-public-grpc-addr=0.0.0.0:5555 \
+  --bind-private-grpc-port=5554 \
   --no-default-peers \
-  --bind /ip4/0.0.0.0/udp/30303/quic-v1
+  --bind /ip4/0.0.0.0/udp/30303/quic-v1 &
+
+exec zk-pow-mine \
+  --node-addr http://127.0.0.1:5554 \
+  --mining-pkh "$DERIVED_PKH"
 ```
 
 **Docker Compose:**

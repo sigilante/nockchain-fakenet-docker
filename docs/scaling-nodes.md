@@ -123,7 +123,6 @@ services:
       dockerfile: docker/Dockerfile.nockchain-node
       args:
         NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
-        NOCKUP_VERSION: ${NOCKUP_VERSION:-master}
         PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
     container_name: nockchain-node-2
     volumes:
@@ -146,7 +145,7 @@ services:
     depends_on:
       - nockchain-fakenet-miner
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      test: ["CMD", "nc", "-z", "localhost", "5555"]
       interval: 30s
       timeout: 10s
       retries: 3

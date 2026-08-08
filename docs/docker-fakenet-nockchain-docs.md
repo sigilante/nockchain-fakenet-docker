@@ -210,7 +210,6 @@ FAKENET_MASTER_PKH="9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV"
 # Fakenet parameters
 FAKENET=true
 POW_LEN=2                      # Proof-of-work difficulty (lower = faster)
-COINBASE_TIMELOCK_MIN=0        # Coinbase maturity in blocks
 
 # Port configuration
 MINER_GRPC_PORT=5555
@@ -219,8 +218,8 @@ NODE_GRPC_PORT=5556
 NODE_P2P_PORT=30304
 
 # Build versions
-NOCKCHAIN_VERSION=master       # Git branch/tag to build
-NOCKUP_VERSION=master
+NOCKCHAIN_VERSION=master       # Git branch/tag to build (nockup is built from
+                                # this same checkout, not a separate repo)
 ```
 
 ### Adjusting Mining Difficulty
@@ -431,10 +430,10 @@ docker-compose up -d
 
 The Docker build performs the following steps:
 
-1. **Install Rust toolchains**: Stable for nockchain, nightly for nockup
+1. **Install Rust**: bootstraps rustup; the cloned repo's `rust-toolchain.toml` pins the actual compiler used for every binary below
 2. **Install protoc 25.1**: Required for proto3 optional fields
-3. **Clone repositories**: nockchain (sigilante fork) and nockup
-4. **Build binaries**: nockchain, nockchain-wallet, hoon, hoonc, nockup
+3. **Fetch repository source**: `nockchain/nockchain` as a GitHub archive tarball, not a `git clone` (`nockup` is a workspace crate in this same repo, not a separate fetch)
+4. **Build binaries**: nockchain, nockchain-wallet, hoon, hoonc, nockup, and (miner image only) zk-pow-mine
 5. **Create runtime image**: Ubuntu 22.04 with compiled binaries
 
 Build time: 20-40 minutes on first run. Subsequent builds use Docker layer caching.
@@ -450,7 +449,10 @@ Each container executes an entrypoint script that:
    - `nockchain-wallet set-active-master-address "..."`
    - `nockchain-wallet derive-child <index>`
 4. Parses the derived PKH from output
-5. Starts nockchain with the appropriate configuration
+5. Starts nockchain with the appropriate configuration. On the miner, it also
+   starts the standalone `zk-pow-mine` process once the node's private gRPC
+   is up, since `nockchain` itself no longer has mining flags - see
+   [Why the nockchain/nockchain switch?](#why-the-nockchainnockchain-switch)
 
 ### Network Isolation
 
@@ -463,11 +465,11 @@ The Docker network is isolated from public nockchain networks:
 
 This ensures a clean, reproducible development environment.
 
-### Why the sigilante Fork?
+### Why the nockchain/nockchain switch?
 
-The official zorp-corp/nockchain repository hardcodes the public gRPC server as disabled. The sigilante fork enables the public gRPC server (`EnablePublicServer`), allowing full API access for development.
+This project used to build from a fork, `sigilante/nockchain`, because the official `nockchain/nockchain` repository hardcoded the public gRPC server as disabled. That fix (`EnablePublicServer` when `--bind-public-grpc-addr` is passed) has since been merged upstream, so this project now builds from the official repository directly.
 
-Once these changes are merged upstream, the Dockerfile will be updated to use the official repository.
+Along the way, upstream also removed `--mine`/`--mining-pkh`/`--fakenet-coinbase-timelock-min` from the `nockchain` CLI and moved mining into a standalone `zk-pow-mine` process that talks to a node's private gRPC. The miner container now runs both `nockchain` and `zk-pow-mine`; see `docker/entrypoint.sh`.
 
 ## Repository Structure
 

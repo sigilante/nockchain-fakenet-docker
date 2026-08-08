@@ -7,12 +7,20 @@ If you're experiencing "no known peers" issues, this guide will help you rebuild
 The Dockerfiles have been updated to include explicit P2P peer configuration:
 
 ### Miner Node
+
+`nockchain` no longer has `--mine`/`--mining-pkh` flags; mining runs as a
+separate `zk-pow-mine` process pointed at the node's private gRPC (see
+`docker/entrypoint.sh`):
 ```bash
-nockchain --mine --fakenet \
+nockchain --fakenet \
   --no-default-peers \
   --bind /ip4/0.0.0.0/udp/30303/quic-v1 \
-  --mining-pkh="${MINING_PKH}" \
-  --bind-public-grpc-addr=0.0.0.0:5555
+  --bind-public-grpc-addr=0.0.0.0:5555 \
+  --bind-private-grpc-port=5554
+
+zk-pow-mine \
+  --node-addr http://127.0.0.1:5554 \
+  --mining-pkh "${MINING_PKH}"
 ```
 
 ### Non-Mining Node
@@ -239,7 +247,7 @@ If you're still experiencing issues:
    ```
 
 3. **Review nockchain documentation:**
-   - [Nockchain GitHub](https://github.com/sigilante/nockchain)
+   - [Nockchain GitHub](https://github.com/nockchain/nockchain)
    - [Official Documentation](https://docs.nockchain.org)
 
 4. **File an issue** with:

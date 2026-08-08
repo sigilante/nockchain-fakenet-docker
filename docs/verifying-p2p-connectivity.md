@@ -194,9 +194,9 @@ docker-compose logs -f
 
 The Docker images are pre-configured with explicit peer connections:
 
-**Miner configuration:**
+**Miner configuration:** (`nockchain` runs without mining flags; a separate `zk-pow-mine` process handles mining - see `docker/entrypoint.sh`)
 ```bash
-nockchain --mine --fakenet \
+nockchain --fakenet \
   --no-default-peers \
   --bind /ip4/0.0.0.0/udp/30303/quic-v1
 ```

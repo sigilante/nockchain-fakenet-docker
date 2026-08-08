@@ -4,7 +4,7 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 **Status:**  Working fakenet nodes.
 
-* Upstream Nockchain distribution zorp-corp/nockchain currently has the public gRPC server disabled by default, making wallet operations and queries inaccessible from outside the node. This Docker setup uses a forked version sigilante/nockchain which enables the public gRPC server, allowing full API access. This will be changed back to the main distribution once fixed. See [Technical Notes](#technical-notes) for details.
+* This Docker setup builds from the upstream `nockchain/nockchain` distribution. It previously used a fork, `sigilante/nockchain`, to work around the public gRPC server being hardcoded off; that fix has since been merged upstream. See [Technical Notes](#technical-notes) for details, including a breaking change upstream made to mining in the process.
 
 * Needs improvement: Automated verification of P2P connectivity between miner and non-mining node. See [Verifying P2P Connectivity](#verifying-p2p-connectivity) for manual steps.
 
@@ -80,14 +80,14 @@ This repository contains a Docker Compose setup for running a local fakenet of N
     - **gRPC API**: `localhost:5556` ← **Use this for wallet operations**
     - **P2P Network**: `localhost:30304`
 
-    **Note:** This build uses the `sigilante/nockchain` fork which has the public gRPC server enabled, allowing full API access.
+    **Note:** This build uses upstream `nockchain/nockchain`, passing `--bind-public-grpc-addr` to enable the public gRPC server for full API access.
 
 ## Architecture
 
 This setup runs two nockchain nodes:
 
 1. **Mining Node** (`nockchain-fakenet-miner`):
-   - Runs with `--mine` flag
+   - Runs `nockchain` plus a standalone `zk-pow-mine` process pointed at its private gRPC
    - Produces blocks and maintains the blockchain
    - Receives mining rewards to the configured PKH
 
@@ -234,8 +234,7 @@ You can specify the versions to build in your `.env` file or directly in `docker
 ```yaml
 build:
   args:
-    NOCKCHAIN_VERSION: v1.0.0  # or 'master' for latest
-    NOCKUP_VERSION: v1.0.0     # or 'master' for latest
+    NOCKCHAIN_VERSION: v1.0.0  # or 'master' for latest (nockup builds from this same checkout)
 ```
 
 ### Environment Variables
@@ -245,7 +244,6 @@ Configure the node via environment variables in `docker-compose.yml`:
 - `MINING_PKH`: Public key hash for mining rewards
 - `FAKENET`: Enable fakenet mode (true/false)
 - `POW_LEN`: Proof-of-work difficulty (lower = easier)
-- `COINBASE_TIMELOCK_MIN`: Minimum coinbase maturity time
 
 ## Data Persistence
 
@@ -301,16 +299,17 @@ docker-compose down -v
 
 ### Repository Source
 
-This Docker build currently uses **`sigilante/nockchain`** instead of the upstream `zorp-corp/nockchain` repository.
+This Docker build uses upstream **`nockchain/nockchain`**. It previously used a fork, **`sigilante/nockchain`**, because upstream hardcoded the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. That fix (enabling `EnablePublicServer` when `--bind-public-grpc-addr` is passed) has since been merged upstream, so the fork is no longer needed for this reason.
 
-**Why?** The upstream nockchain hardcodes the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. The `sigilante/nockchain` fork includes a fix that enables the public gRPC server, allowing full API functionality.
+### Mining is now a separate process
 
-**What's different?**
-- Public gRPC server is enabled (uses `EnablePublicServer`)
-- The `--bind-public-grpc-addr` flag now works correctly
-- External wallet operations and blockchain queries are accessible
+Somewhere along the way, upstream also extracted mining out of the `nockchain` binary entirely: `--mine` and `--mining-pkh` no longer exist as `nockchain` CLI flags. Mining is now the standalone `zk-pow-mine` binary (crate `zk-pow-miner`), which connects to a running node's **private** gRPC endpoint, watches for mining candidates, and pokes solutions back.
 
-**Future plans:** Once a PR with these changes is merged into `zorp-corp/nockchain`, this Dockerfile will be updated to use the upstream repository again.
+To keep this repo's one-container-per-role setup, the miner image (`docker/Dockerfile.nockchain-miner`) now also builds `zk-pow-mine`, and `docker/entrypoint.sh` runs both processes in the miner container: `nockchain` in the background (with `--bind-private-grpc-port` set to an internal-only port, distinct from the public gRPC port to avoid a bind conflict), and `zk-pow-mine` pointed at that private port in the foreground. If either process dies, the container exits so Docker's restart policy can recover it. The non-mining node container is unaffected — it only ever ran `nockchain` by itself.
+
+One related flag also disappeared: `--fakenet-coinbase-timelock-min` no longer exists on the `nockchain` CLI, so `FAKENET_COINBASE_TIMELOCK_MIN` has been removed from `.env.example` and `docker-compose.yml`.
+
+**Memory note:** `zk-pow-mine` defaults to `(host CPUs - 1)` worker threads, each running a full STARK-proving kernel instance - at this repo's default `FAKENET_POW_LEN=64` (mainnet-strength difficulty), that defaults to more concurrent proving work than a modestly-sized Docker Desktop VM can hold, and the miner container gets OOM-killed. `docker/entrypoint.sh` now caps this via `--num-threads`, controlled by `ZK_POW_MINE_THREADS` (default `2`). Raise it if you've given Docker more memory and want faster block production; check `docker inspect <container> --format '{{.State.OOMKilled}}'` if the miner container keeps exiting.
 
 ## Development
 
@@ -328,5 +327,5 @@ docker-compose up -d --build
 
 - [Nockchain Documentation](https://docs.nockchain.org/)
 - [NockApp Development and Testing](https://docs.nockchain.org/nockapp/what-is-nockapp/development-and-testing)
-- [Nockchain GitHub Repository (upstream)](https://github.com/zorp-corp/nockchain)
-- [Nockchain Fork with gRPC enabled (currently used)](https://github.com/sigilante/nockchain)
+- [Nockchain GitHub Repository (upstream, used by this build)](https://github.com/nockchain/nockchain)
+- [zk-pow-miner](https://github.com/nockchain/nockchain/tree/master/crates/zk-pow-miner) - standalone mining process used by the miner container
