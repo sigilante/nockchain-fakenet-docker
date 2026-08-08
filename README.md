@@ -309,7 +309,23 @@ To keep this repo's one-container-per-role setup, the miner image (`docker/Docke
 
 One related flag also disappeared: `--fakenet-coinbase-timelock-min` no longer exists on the `nockchain` CLI, so `FAKENET_COINBASE_TIMELOCK_MIN` has been removed from `.env.example` and `docker-compose.yml`.
 
-**Memory note:** `zk-pow-mine` defaults to `(host CPUs - 1)` worker threads, each running a full STARK-proving kernel instance - at this repo's default `FAKENET_POW_LEN=64` (mainnet-strength difficulty), that defaults to more concurrent proving work than a modestly-sized Docker Desktop VM can hold, and the miner container gets OOM-killed. `docker/entrypoint.sh` now caps this via `--num-threads`, controlled by `ZK_POW_MINE_THREADS` (default `2`). Raise it if you've given Docker more memory and want faster block production; check `docker inspect <container> --format '{{.State.OOMKilled}}'` if the miner container keeps exiting.
+**Memory note:** `zk-pow-mine` defaults to `(host CPUs - 1)` worker threads, each running a full STARK-proving kernel instance - on a host with many cores, that can be more concurrent proving work than a modestly-sized Docker Desktop VM can hold, and the miner container gets OOM-killed. `docker/entrypoint.sh` now caps this via `--num-threads`, controlled by `ZK_POW_MINE_THREADS` (default `2`). Raise it if you've given Docker more memory and want faster block production; check `docker inspect <container> --format '{{.State.OOMKilled}}'` if the miner container keeps exiting.
+
+**Difficulty note:** this repo defaults to the easy fakenet genesis (`FAKENET_POW_LEN=2`, `FAKENET_LOG_DIFFICULTY=1`, `fakenet-genesis-pow-2-bex-1.jam`) so local mining stays fast. `FAKENET_POW_LEN=64` / `fakenet-genesis-pow-64-bex-5.jam` mimics mainnet-grade difficulty and will mine genesis plus a couple of blocks before slowing to a crawl on typical dev hardware - only switch to it if you specifically want to exercise real PoW difficulty, and change `FAKENET_POW_LEN`, `FAKENET_LOG_DIFFICULTY`, and `FAKENET_GENESIS_JAM_PATH` together (they must match the same genesis, not be swapped independently).
+
+### `nockchain-wallet` defaults to a real external server - not your local node
+
+`nockchain-wallet`'s `--client` flag defaults to `public`, and `--public-grpc-server-addr` defaults to **`23.252.122.18:5556`** - a real server on the actual network, hardcoded upstream (`crates/nockchain-wallet/src/connection.rs`). Any wallet command that needs current chain state (balance checks, `create-tx` without `--notes-csv`, sending, etc.) will silently dial out to that address instead of this stack's local fakenet node, unless you override it.
+
+Commands that only touch local key material - `import-keys`, `derive-child`, `derive-child-batch`, `set-active-master-address`, `list-active-addresses`, `keygen`, `export-keys`, `show-*` - never sync and never make this call, which is why `docker/entrypoint.sh`'s automated wallet derivation is unaffected. But if you exec into a container to check a balance or send a transaction, explicitly target the local node's private gRPC or you'll be querying (and leaking your watched addresses to) the public server instead of your fakenet chain:
+
+```bash
+docker exec nockchain-fakenet-miner nockchain-wallet \
+  --client private --private-grpc-server-port 5554 \
+  list-notes
+```
+
+Note the port: this repo binds the node's private gRPC to **5554** (`--bind-private-grpc-port`, see above), not the wallet's own default of 5555 - `nockchain-wallet`'s default `--private-grpc-server-port` won't reach it either.
 
 ## Development
 

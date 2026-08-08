@@ -29,7 +29,7 @@ P2P_PORT=${3:-30305}
 # Defaults from .env.example
 FAKENET_SEEDPHRASE="${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}"
 FAKENET_MASTER_PKH="${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}"
-NOCKCHAIN_IMAGE="${NOCKCHAIN_IMAGE:-nockchain-fakenet-docker-nockchain-fakenet-node}"
+NOCKCHAIN_IMAGE="${NOCKCHAIN_IMAGE:-nockchain-fakenet-node}"
 NETWORK_NAME="${NETWORK_NAME:-nockchain-fakenet-docker_nockchain-fakenet}"
 
 # Determine if we should use master PKH
@@ -86,8 +86,10 @@ docker run -d \
     -e "CHILD_KEY_INDEX=$CHILD_KEY_INDEX" \
     -e "FAKENET_SEEDPHRASE=$FAKENET_SEEDPHRASE" \
     -e "FAKENET_MASTER_PKH=$FAKENET_MASTER_PKH" \
-    -e "FAKENET=true" \
-    -e "POW_LEN=2" \
+    -e "FAKENET_V1_PHASE=1" \
+    -e "FAKENET_POW_LEN=2" \
+    -e "FAKENET_LOG_DIFFICULTY=1" \
+    -e "FAKENET_GENESIS_JAM_PATH=/assets/fakenet-genesis-pow-2-bex-1.jam" \
     -e "RUST_LOG=info" \
     -e "PEER_MULTIADDR=/dns4/nockchain-fakenet-miner/udp/30303/quic-v1" \
     "$NOCKCHAIN_IMAGE"

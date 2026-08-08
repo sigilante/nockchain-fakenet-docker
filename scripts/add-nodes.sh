@@ -69,8 +69,10 @@ for i in $(seq 1 $NUM_NODES); do
       - FAKENET_SEEDPHRASE=\${FAKENET_SEEDPHRASE:-farm step rhythm surprise math august panther pulse protect remain anger depend adjust sting enable poet describe stone essay blast click horse hair practice}
       - FAKENET_MASTER_PKH=\${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings
-      - FAKENET=\${FAKENET:-true}
-      - POW_LEN=\${POW_LEN:-2}
+      - FAKENET_V1_PHASE=\${FAKENET_V1_PHASE:-1}
+      - FAKENET_POW_LEN=\${FAKENET_POW_LEN:-2}
+      - FAKENET_LOG_DIFFICULTY=\${FAKENET_LOG_DIFFICULTY:-1}
+      - FAKENET_GENESIS_JAM_PATH=\${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-2-bex-1.jam}
       - RUST_LOG=\${RUST_LOG:-info}
     networks:
       - nockchain-fakenet

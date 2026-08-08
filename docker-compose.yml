@@ -25,16 +25,17 @@ services:
       - FAKENET_MASTER_PKH=${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings
       - FAKENET_V1_PHASE=${FAKENET_V1_PHASE:-1}
-      - FAKENET_POW_LEN=${FAKENET_POW_LEN:-64}
-      - FAKENET_LOG_DIFFICULTY=${FAKENET_LOG_DIFFICULTY:-5}
-      - FAKENET_GENESIS_JAM_PATH=${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-64-bex-5.jam}
+      - FAKENET_POW_LEN=${FAKENET_POW_LEN:-2}
+      - FAKENET_LOG_DIFFICULTY=${FAKENET_LOG_DIFFICULTY:-1}
+      - FAKENET_GENESIS_JAM_PATH=${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-2-bex-1.jam}
       - RUST_LOG=${RUST_LOG:-info}
       # zk-pow-mine worker thread count. Each thread runs a full STARK-proving
-      # kernel instance; at this difficulty (--fakenet-pow-len 64) that's
-      # memory-hungry, and zk-pow-mine's own default (host CPUs - 1) can OOM
+      # kernel instance, and zk-pow-mine's own default (host CPUs - 1) can OOM
       # a Docker Desktop VM that doesn't have proportionally large memory
-      # allocated to it. Raise this if you've given Docker more memory and
-      # want faster block production.
+      # allocated to it - matters even at this easy fakenet difficulty
+      # (FAKENET_POW_LEN=2), and much more so if you raise POW_LEN/genesis
+      # jam to something harder. Raise this if you've given Docker more
+      # memory and want faster block production.
       - ZK_POW_MINE_THREADS=${ZK_POW_MINE_THREADS:-2}
     networks:
       - nockchain-fakenet
@@ -71,9 +72,9 @@ services:
       - FAKENET_MASTER_PKH=${FAKENET_MASTER_PKH:-9yPePjfWAdUnzaQKyxcRXKRa5PpUzKKEwtpECBZsUYt9Jd7egSDEWoV}
       # Fakenet settings
       - FAKENET_V1_PHASE=${FAKENET_V1_PHASE:-1}
-      - FAKENET_POW_LEN=${FAKENET_POW_LEN:-64}
-      - FAKENET_LOG_DIFFICULTY=${FAKENET_LOG_DIFFICULTY:-5}
-      - FAKENET_GENESIS_JAM_PATH=${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-64-bex-5.jam}
+      - FAKENET_POW_LEN=${FAKENET_POW_LEN:-2}
+      - FAKENET_LOG_DIFFICULTY=${FAKENET_LOG_DIFFICULTY:-1}
+      - FAKENET_GENESIS_JAM_PATH=${FAKENET_GENESIS_JAM_PATH:-/assets/fakenet-genesis-pow-2-bex-1.jam}
       - RUST_LOG=${RUST_LOG:-info}
     networks:
       - nockchain-fakenet

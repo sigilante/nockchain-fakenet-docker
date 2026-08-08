@@ -94,6 +94,18 @@ docker-compose logs nockchain-node | grep -i grpc
 docker-compose logs nockchain-node | grep "EnablePublicServer"
 ```
 
+## `nockchain-wallet` Defaults to a Real External Server
+
+This is a gotcha specific to the `nockchain-wallet` binary, separate from the node's gRPC API above: `nockchain-wallet`'s `--client` flag defaults to `public`, and `--public-grpc-server-addr` defaults to **`23.252.122.18:5556`** - a real server on the actual network, hardcoded upstream. Any wallet command needing current chain state (balance, `create-tx` without `--notes-csv`, sending, etc.) will silently dial that address instead of your local fakenet node unless you override it:
+
+```bash
+docker exec nockchain-fakenet-miner nockchain-wallet \
+  --client private --private-grpc-server-port 5554 \
+  list-notes
+```
+
+Use port **5554** (this repo's `--bind-private-grpc-port`), not the wallet's own default of 5555. Commands that only touch local key material (`import-keys`, `derive-child`, `list-active-addresses`, etc.) never make this call and are unaffected - see [README.md](README.md#nockchain-wallet-defaults-to-a-real-external-server---not-your-local-node) for the full breakdown.
+
 ## Troubleshooting
 
 **"context deadline exceeded" on localhost:5555:**
