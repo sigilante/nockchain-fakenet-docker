@@ -299,7 +299,13 @@ docker-compose down -v
 
 ### Repository Source
 
-This Docker build uses upstream **`nockchain/nockchain`**. It previously used a fork, **`sigilante/nockchain`**, because upstream hardcoded the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. That fix (enabling `EnablePublicServer` when `--bind-public-grpc-addr` is passed) has since been merged upstream, so the fork is no longer needed for this reason.
+This Docker build is on a fork again, **`sigilante/nockchain`**, pinned to the tag **`wallet-private-host-v1`** - but for a different, narrower reason than before.
+
+The *original* fork existed because upstream hardcoded the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. That fix (enabling `EnablePublicServer` when `--bind-public-grpc-addr` is passed) was merged upstream, and for a while this repo built straight from `nockchain/nockchain` again.
+
+It's back on a fork because `nockchain-wallet`'s `--client private` mode hardcodes its target to `127.0.0.1` in `crates/nockchain-wallet/src/connection.rs` - only the port is configurable (`--private-grpc-server-port`), not the host. That means the wallet can never reach a private gRPC endpoint outside its own network namespace: not another container by Docker DNS name, not a host-mapped address, nothing. See [Wallet private-gRPC host](#nockchain-wallet-defaults-to-a-real-external-server---not-your-local-node) below for why that matters.
+
+`wallet-private-host-v1` is `nockchain/nockchain`'s master (as of the tag date) plus one small, additive patch: a new `--private-grpc-server-host` flag, defaulting to `127.0.0.1` so nothing that doesn't pass it changes behavior. The patch lives at `crates/nockchain-wallet/src/connection.rs` - it's a ~10 line diff, easy to eyeball against upstream. To pick up new upstream commits, rebase the fork's `master` onto `nockchain/nockchain`'s current master, re-tag, and bump `NOCKCHAIN_VERSION` in `.env.example`/`docker-compose.yml` to the new tag - don't just point `NOCKCHAIN_VERSION` at the fork's floating `master`, or this setup silently drifts out of sync with upstream again exactly like it did before.
 
 ### Mining is now a separate process
 
@@ -326,6 +332,16 @@ docker exec nockchain-fakenet-miner nockchain-wallet \
 ```
 
 Note the port: this repo binds the node's private gRPC to **5554** (`--bind-private-grpc-port`, see above), not the wallet's own default of 5555 - `nockchain-wallet`'s default `--private-grpc-server-port` won't reach it either.
+
+The example above execs into the miner itself, so the node's private gRPC is reachable at `127.0.0.1` (the wallet's default host). To reach it from *outside* that container - the node container instead, another tools container on the same Docker network, or anywhere else `127.0.0.1` doesn't mean "the miner" - use `--private-grpc-server-host` (from this repo's fork, see [Repository Source](#repository-source)):
+
+```bash
+docker exec nockchain-fakenet-node nockchain-wallet \
+  --client private \
+  --private-grpc-server-host nockchain-fakenet-miner \
+  --private-grpc-server-port 5554 \
+  list-notes
+```
 
 ## Development
 

@@ -47,7 +47,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # even a shallow clone since it skips .git entirely.
 ARG NOCKCHAIN_VERSION=master
 WORKDIR /build/nockchain
-RUN curl -fsSL "https://github.com/nockchain/nockchain/archive/${NOCKCHAIN_VERSION}.tar.gz" -o /tmp/nockchain-src.tar.gz && \
+RUN curl -fsSL "https://github.com/sigilante/nockchain/archive/${NOCKCHAIN_VERSION}.tar.gz" -o /tmp/nockchain-src.tar.gz && \
     tar xzf /tmp/nockchain-src.tar.gz --strip-components=1 -C . && \
     rm /tmp/nockchain-src.tar.gz
 
@@ -63,12 +63,12 @@ ARG CARGO_GIT_CACHE=cargo-git
 # Build hoonc (Hoon compiler) - needed for building Hoon assets
 RUN --mount=type=cache,target=/root/.cargo/registry,id=${CARGO_REGISTRY_CACHE} \
     --mount=type=cache,target=/root/.cargo/git,id=${CARGO_GIT_CACHE} \
-    cargo install --locked --force --path crates/hoonc --bin hoonc
+    cargo -Z unstable-options -Z git=shallow-deps install --locked --force --path crates/hoonc --bin hoonc
 
 # Build hoon (Hoon runtime/interpreter)
 RUN --mount=type=cache,target=/root/.cargo/registry,id=${CARGO_REGISTRY_CACHE} \
     --mount=type=cache,target=/root/.cargo/git,id=${CARGO_GIT_CACHE} \
-    cargo build --release --bin hoon
+    cargo -Z unstable-options -Z git=shallow-deps build --release --bin hoon
 
 # Build Hoon assets (.jam files) using the compiled hoonc
 RUN make build-hoon-all || echo "Warning: build-hoon-all failed, continuing anyway"
@@ -85,7 +85,7 @@ RUN ls -la crates/nockchain/assets/ || echo "No nockchain assets directory" && \
 RUN --mount=type=cache,target=/root/.cargo/registry,id=${CARGO_REGISTRY_CACHE} \
     --mount=type=cache,target=/root/.cargo/git,id=${CARGO_GIT_CACHE} \
     --mount=type=cache,target=/build/nockchain/target,id=nockchain-base-target \
-    cargo build --release --bin nockchain --bin nockchain-wallet --bin nockup && \
+    cargo -Z unstable-options -Z git=shallow-deps build --release --bin nockchain --bin nockchain-wallet --bin nockup && \
     mkdir -p /build/out && \
     cp target/release/nockchain target/release/nockchain-wallet target/release/nockup /build/out/
 

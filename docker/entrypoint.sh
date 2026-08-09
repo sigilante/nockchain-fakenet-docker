@@ -91,7 +91,13 @@ echo ""
 NOCKCHAIN_ARGS=(
     "--fakenet"
     "--bind-public-grpc-addr=0.0.0.0:5555"
-    "--bind-private-grpc-port" "$PRIVATE_GRPC_PORT"
+    # nockchain binds the private gRPC to 127.0.0.1 unless --bind-private-grpc-addr
+    # is given explicitly (--bind-private-grpc-port alone still only listens on
+    # loopback) - 0.0.0.0 is fine here since this port is never published to the
+    # host in docker-compose.yml, so it's only reachable from other containers on
+    # the nockchain-fakenet bridge network, e.g. nockchain-wallet
+    # --private-grpc-server-host nockchain-fakenet-miner from another container.
+    "--bind-private-grpc-addr" "0.0.0.0:$PRIVATE_GRPC_PORT"
     "--no-default-peers"
     "--bind"
     "/ip4/0.0.0.0/udp/30303/quic-v1"

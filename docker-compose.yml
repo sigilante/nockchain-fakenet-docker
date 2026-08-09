@@ -6,8 +6,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile.nockchain-miner
       args:
-        # Pin to specific versions or use 'master' for latest
-        NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
+        # Pinned to sigilante/nockchain's wallet-private-host-v1 tag - see README's Repository Source section
+        NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-wallet-private-host-v1}
         # Protoc version (must be 3.15+ for proto3 optional fields)
         PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
     container_name: nockchain-fakenet-miner
@@ -53,8 +53,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile.nockchain-node
       args:
-        # Pin to specific versions or use 'master' for latest
-        NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-master}
+        # Pinned to sigilante/nockchain's wallet-private-host-v1 tag - see README's Repository Source section
+        NOCKCHAIN_VERSION: ${NOCKCHAIN_VERSION:-wallet-private-host-v1}
         # Protoc version (must be 3.15+ for proto3 optional fields)
         PROTOC_VERSION: ${PROTOC_VERSION:-25.1}
     container_name: nockchain-fakenet-node

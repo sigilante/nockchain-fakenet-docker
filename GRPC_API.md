@@ -106,6 +106,16 @@ docker exec nockchain-fakenet-miner nockchain-wallet \
 
 Use port **5554** (this repo's `--bind-private-grpc-port`), not the wallet's own default of 5555. Commands that only touch local key material (`import-keys`, `derive-child`, `list-active-addresses`, etc.) never make this call and are unaffected - see [README.md](README.md#nockchain-wallet-defaults-to-a-real-external-server---not-your-local-node) for the full breakdown.
 
+`--client private` also only ever targets `127.0.0.1` upstream - the example above works because it execs into the miner container itself. To reach a private gRPC from *outside* that container (another container by Docker DNS name, a host-mapped address, etc.), this repo builds `nockchain-wallet` from a small fork (see README's [Repository Source](README.md#repository-source)) that adds `--private-grpc-server-host`:
+
+```bash
+docker exec nockchain-fakenet-node nockchain-wallet \
+  --client private \
+  --private-grpc-server-host nockchain-fakenet-miner \
+  --private-grpc-server-port 5554 \
+  list-notes
+```
+
 ## Troubleshooting
 
 **"context deadline exceeded" on localhost:5555:**
