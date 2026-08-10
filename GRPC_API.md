@@ -100,16 +100,20 @@ This is a gotcha specific to the `nockchain-wallet` binary, separate from the no
 
 ```bash
 docker exec nockchain-fakenet-miner nockchain-wallet \
+  --fakenet --fakenet-v1-phase 1 \
   --client private --private-grpc-server-port 5554 \
   list-notes
 ```
 
 Use port **5554** (this repo's `--bind-private-grpc-port`), not the wallet's own default of 5555. Commands that only touch local key material (`import-keys`, `derive-child`, `list-active-addresses`, etc.) never make this call and are unaffected - see [README.md](README.md#nockchain-wallet-defaults-to-a-real-external-server---not-your-local-node) for the full breakdown.
 
+**Don't drop `--fakenet --fakenet-v1-phase 1`** even once you're pointed at the right server: `nockchain-wallet` boots against *mainnet* blockchain-constants unless `--fakenet` is passed - "command handlers gate fakenet-only behavior" per its own `--help`. Without it, every lock/note-name the wallet computes (including coinbase locks) uses the wrong constants, so sync connects fine, reports the correct chain height, and still silently returns zero notes even for a PKH that's actually earning mining rewards. This bit us: connectivity, keys, and PKH all matched, and it still took directly comparing the coinbase lock's Hoon construction (`hoon/common/tx-engine.hoon`) against what the wallet computes to find it.
+
 `--client private` also only ever targets `127.0.0.1` upstream - the example above works because it execs into the miner container itself. To reach a private gRPC from *outside* that container (another container by Docker DNS name, a host-mapped address, etc.), this repo builds `nockchain-wallet` from a small fork (see README's [Repository Source](README.md#repository-source)) that adds `--private-grpc-server-host`:
 
 ```bash
 docker exec nockchain-fakenet-node nockchain-wallet \
+  --fakenet --fakenet-v1-phase 1 \
   --client private \
   --private-grpc-server-host nockchain-fakenet-miner \
   --private-grpc-server-port 5554 \

@@ -39,20 +39,25 @@ echo ""
 derive_wallet() {
     local index=$1
 
+    # nockchain-wallet boots against mainnet blockchain-constants unless
+    # --fakenet is passed - "command handlers gate fakenet-only behavior"
+    # per its own --help. Without it, every lock/note-name the wallet
+    # computes (coinbase locks included) uses the wrong constants and
+    # silently can't find fakenet notes, even with the correct keys.
     echo "Step 1: Importing seed phrase..."
-    nockchain-wallet import-keys \
+    nockchain-wallet --fakenet --fakenet-v1-phase "$FAKENET_V1_PHASE" import-keys \
         --seedphrase "$FAKENET_SEEDPHRASE" \
         --version 1 \
         2>&1 | grep -v "^I (" | grep -v "kernel:" | grep -v "serf:" || true
 
     echo ""
     echo "Step 2: Setting active master address..."
-    nockchain-wallet set-active-master-address "$FAKENET_MASTER_PKH" \
+    nockchain-wallet --fakenet --fakenet-v1-phase "$FAKENET_V1_PHASE" set-active-master-address "$FAKENET_MASTER_PKH" \
         2>&1 | grep -v "^I (" | grep -v "kernel:" | grep -v "serf:" || true
 
     echo ""
     echo "Step 3: Deriving child key at index $index..."
-    local output=$(nockchain-wallet derive-child "$index" 2>&1)
+    local output=$(nockchain-wallet --fakenet --fakenet-v1-phase "$FAKENET_V1_PHASE" derive-child "$index" 2>&1)
 
     # Parse the PKH/Address from the Extended Public Key section
     # The output has two "Address:" lines - we want the second one (from public key section)

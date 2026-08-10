@@ -327,6 +327,7 @@ Commands that only touch local key material - `import-keys`, `derive-child`, `de
 
 ```bash
 docker exec nockchain-fakenet-miner nockchain-wallet \
+  --fakenet --fakenet-v1-phase 1 \
   --client private --private-grpc-server-port 5554 \
   list-notes
 ```
@@ -337,11 +338,14 @@ The example above execs into the miner itself, so the node's private gRPC is rea
 
 ```bash
 docker exec nockchain-fakenet-node nockchain-wallet \
+  --fakenet --fakenet-v1-phase 1 \
   --client private \
   --private-grpc-server-host nockchain-fakenet-miner \
   --private-grpc-server-port 5554 \
   list-notes
 ```
+
+**Don't drop `--fakenet --fakenet-v1-phase 1`**, including on the key-management commands listed above: `nockchain-wallet` boots against *mainnet* blockchain-constants unless `--fakenet` is passed ("command handlers gate fakenet-only behavior" per its own `--help`). Without it, every lock/note-name the wallet computes - coinbase locks included - uses the wrong constants, so a sync can connect to the right server, report the correct chain height, and *still* silently show zero notes for a PKH that's actually earning mining rewards. `docker/entrypoint.sh`'s own wallet derivation now passes these flags too; it didn't always, and the gap was only found by directly comparing the coinbase lock construction in `hoon/common/tx-engine.hoon` against what the wallet computes without them.
 
 ## Development
 
