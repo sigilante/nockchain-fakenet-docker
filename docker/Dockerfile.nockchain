@@ -23,10 +23,24 @@ RUN apt-get update && apt-get install -y \
 
 # Install newer protoc from GitHub releases (Ubuntu 22.04's protoc is too old)
 # proto3 optional fields require protoc 3.15+, Ubuntu 22.04 ships with 3.12.x
+#
+# Picks the release asset matching the build's target arch (TARGETARCH is
+# set automatically by buildx) rather than hardcoding x86_64 - an
+# amd64-only protoc silently "works" under Docker Desktop's Rosetta
+# emulation on Apple Silicon, but fails outright (protoc reported as "not
+# found" - the build script's exec of a foreign-arch binary just fails) on
+# a native arm64 builder with no such emulation, e.g. a GitHub Actions
+# arm64 runner.
 ARG PROTOC_VERSION=25.1
-RUN curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" && \
-    unzip "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local && \
-    rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip" && \
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+      amd64) PROTOC_ARCH=x86_64 ;; \
+      arm64) PROTOC_ARCH=aarch_64 ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
+    curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" && \
+    unzip "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" -d /usr/local && \
+    rm "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" && \
     chmod +x /usr/local/bin/protoc
 
 # Install Rust. The nockchain workspace pins its own toolchain via
