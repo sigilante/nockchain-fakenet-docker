@@ -96,7 +96,7 @@ docker-compose logs nockchain-node | grep "EnablePublicServer"
 
 ## `nockchain-wallet` Defaults to a Real External Server
 
-This is a gotcha specific to the `nockchain-wallet` binary, separate from the node's gRPC API above: `nockchain-wallet`'s `--client` flag defaults to `public`, and `--public-grpc-server-addr` defaults to **`23.252.122.18:5556`** - a real server on the actual network, hardcoded upstream. Any wallet command needing current chain state (balance, `create-tx` without `--notes-csv`, sending, etc.) will silently dial that address instead of your local fakenet node unless you override it:
+This is a gotcha specific to the `nockchain-wallet` binary, separate from the node's gRPC API above: `nockchain-wallet`'s `--client` flag defaults to `public`, and `--public-grpc-server-addr` defaults to **`216.158.95.10:5556`** - a real server on the actual network, hardcoded upstream. Any wallet command needing current chain state (balance, `create-tx` without `--notes-csv`, sending, etc.) will silently dial that address instead of your local fakenet node unless you override it:
 
 ```bash
 docker exec nockchain-fakenet-miner nockchain-wallet \

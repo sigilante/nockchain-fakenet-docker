@@ -4,7 +4,7 @@ This repository contains a Docker Compose setup for running a local fakenet of N
 
 **Status:**  Working fakenet nodes.
 
-* This Docker setup builds from the upstream `nockchain/nockchain` distribution. It previously used a fork, `sigilante/nockchain`, to work around the public gRPC server being hardcoded off; that fix has since been merged upstream. See [Technical Notes](#technical-notes) for details, including a breaking change upstream made to mining in the process.
+* This Docker setup builds from the upstream `nockchain/nockchain` distribution, pinned to a specific commit (currently the September 2026 security advisory bundle). It previously used a fork, `sigilante/nockchain`, twice - once to work around the public gRPC server being hardcoded off, and again to add a configurable wallet private-gRPC host; both fixes have since been merged upstream. See [Technical Notes](#technical-notes) for details, including a breaking change upstream made to mining in the process.
 
 * Needs improvement: Automated verification of P2P connectivity between miner and non-mining node. See [Verifying P2P Connectivity](#verifying-p2p-connectivity) for manual steps.
 
@@ -234,7 +234,7 @@ You can specify the versions to build in your `.env` file or directly in `docker
 ```yaml
 build:
   args:
-    NOCKCHAIN_VERSION: v1.0.0  # or 'master' for latest (nockup builds from this same checkout)
+    NOCKCHAIN_VERSION: cbd9298f96584b14ab93074ecdf32d0ec212e50e  # branch, tag, or commit SHA; 'master' for latest (nockup builds from this same checkout)
 ```
 
 ### Environment Variables
@@ -299,13 +299,14 @@ docker-compose down -v
 
 ### Repository Source
 
-This Docker build is on a fork again, **`sigilante/nockchain`**, pinned to the tag **`wallet-private-host-v1`** - but for a different, narrower reason than before.
+This build is back on the official **`nockchain/nockchain`** repository, pinned to a specific commit rather than a fork.
 
-The *original* fork existed because upstream hardcoded the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. That fix (enabling `EnablePublicServer` when `--bind-public-grpc-addr` is passed) was merged upstream, and for a while this repo built straight from `nockchain/nockchain` again.
+It was previously forked twice, for two separate reasons, both now resolved upstream:
 
-It's back on a fork because `nockchain-wallet`'s `--client private` mode hardcodes its target to `127.0.0.1` in `crates/nockchain-wallet/src/connection.rs` - only the port is configurable (`--private-grpc-server-port`), not the host. That means the wallet can never reach a private gRPC endpoint outside its own network namespace: not another container by Docker DNS name, not a host-mapped address, nothing. See [Wallet private-gRPC host](#nockchain-wallet-defaults-to-a-real-external-server---not-your-local-node) below for why that matters.
+1. Upstream hardcoded the public gRPC server as disabled (`NockchainAPIConfig::DisablePublicServer` in `main.rs`), making the API inaccessible even with correct CLI flags. That fix (enabling `EnablePublicServer` when `--bind-public-grpc-addr` is passed) was merged upstream.
+2. `nockchain-wallet`'s `--client private` mode hardcoded its target to `127.0.0.1` in `crates/nockchain-wallet/src/connection.rs` - only the port was configurable (`--private-grpc-server-port`), not the host, so the wallet could never reach a private gRPC endpoint outside its own network namespace (not another container by Docker DNS name, not a host-mapped address, nothing). The fork (`sigilante/nockchain`, tag `wallet-private-host-v1`) added a `--private-grpc-server-host` flag for this; that flag is now in upstream `nockchain/nockchain` too. See [Wallet private-gRPC host](#nockchain-wallet-defaults-to-a-real-external-server---not-your-local-node) below for why the flag matters.
 
-`wallet-private-host-v1` is `nockchain/nockchain`'s master (as of the tag date) plus one small, additive patch: a new `--private-grpc-server-host` flag, defaulting to `127.0.0.1` so nothing that doesn't pass it changes behavior. The patch lives at `crates/nockchain-wallet/src/connection.rs` - it's a ~10 line diff, easy to eyeball against upstream. To pick up new upstream commits, rebase the fork's `master` onto `nockchain/nockchain`'s current master, re-tag, and bump `NOCKCHAIN_VERSION` in `.env.example`/`docker-compose.yml` to the new tag - don't just point `NOCKCHAIN_VERSION` at the fork's floating `master`, or this setup silently drifts out of sync with upstream again exactly like it did before.
+`NOCKCHAIN_VERSION` is pinned to a commit SHA (currently `cbd9298f96584b14ab93074ecdf32d0ec212e50e`, upstream's "Security advisory bundle (#203)", workspace version 0.1.17) rather than `master`, since upstream doesn't publish meaningful release tags and a floating `master` makes builds non-reproducible. GitHub's archive endpoint accepts a commit SHA (full or short) the same way it accepts a branch or tag name, so this works with the same tarball-fetch mechanism the Dockerfiles already use. To pick up new upstream commits, choose a newer commit off `nockchain/nockchain`'s master and bump `NOCKCHAIN_VERSION` in `.env.example`/`docker-compose.yml` to that SHA.
 
 ### Mining is now a separate process
 
@@ -321,7 +322,7 @@ One related flag also disappeared: `--fakenet-coinbase-timelock-min` no longer e
 
 ### `nockchain-wallet` defaults to a real external server - not your local node
 
-`nockchain-wallet`'s `--client` flag defaults to `public`, and `--public-grpc-server-addr` defaults to **`23.252.122.18:5556`** - a real server on the actual network, hardcoded upstream (`crates/nockchain-wallet/src/connection.rs`). Any wallet command that needs current chain state (balance checks, `create-tx` without `--notes-csv`, sending, etc.) will silently dial out to that address instead of this stack's local fakenet node, unless you override it.
+`nockchain-wallet`'s `--client` flag defaults to `public`, and `--public-grpc-server-addr` defaults to **`216.158.95.10:5556`** - a real server on the actual network, hardcoded upstream (`crates/nockchain-wallet/src/connection.rs`). (This address changed from a previous `23.252.122.18:5556` at some point upstream - it's whatever `DEFAULT_PUBLIC_GRPC_SERVER_ADDR` in that file currently says, so re-check it after bumping `NOCKCHAIN_VERSION`.) Any wallet command that needs current chain state (balance checks, `create-tx` without `--notes-csv`, sending, etc.) will silently dial out to that address instead of this stack's local fakenet node, unless you override it.
 
 Commands that only touch local key material - `import-keys`, `derive-child`, `derive-child-batch`, `set-active-master-address`, `list-active-addresses`, `keygen`, `export-keys`, `show-*` - never sync and never make this call, which is why `docker/entrypoint.sh`'s automated wallet derivation is unaffected. But if you exec into a container to check a balance or send a transaction, explicitly target the local node's private gRPC or you'll be querying (and leaking your watched addresses to) the public server instead of your fakenet chain:
 

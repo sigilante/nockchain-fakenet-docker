@@ -218,8 +218,9 @@ NODE_GRPC_PORT=5556
 NODE_P2P_PORT=30304
 
 # Build versions
-NOCKCHAIN_VERSION=master       # Git branch/tag to build (nockup is built from
-                                # this same checkout, not a separate repo)
+NOCKCHAIN_VERSION=master       # Git branch, tag, or commit SHA to build
+                                # (nockup is built from this same checkout,
+                                # not a separate repo)
 ```
 
 ### Adjusting Mining Difficulty
@@ -467,7 +468,7 @@ This ensures a clean, reproducible development environment.
 
 ### Why the nockchain/nockchain switch?
 
-This project used to build from a fork, `sigilante/nockchain`, because the official `nockchain/nockchain` repository hardcoded the public gRPC server as disabled. That fix (`EnablePublicServer` when `--bind-public-grpc-addr` is passed) has since been merged upstream, so this project now builds from the official repository directly.
+This project used to build from a fork, `sigilante/nockchain`, twice: first because the official `nockchain/nockchain` repository hardcoded the public gRPC server as disabled, then later because `nockchain-wallet --client private` hardcoded its target host to `127.0.0.1`. Both fixes (`EnablePublicServer` when `--bind-public-grpc-addr` is passed, and the `--private-grpc-server-host` flag) have since been merged upstream, so this project builds from the official repository directly again, pinned to a specific commit for reproducibility - see the README's [Repository Source](../README.md#repository-source) section for the current pin.
 
 Along the way, upstream also removed `--mine`/`--mining-pkh`/`--fakenet-coinbase-timelock-min` from the `nockchain` CLI and moved mining into a standalone `zk-pow-mine` process that talks to a node's private gRPC. The miner container now runs both `nockchain` and `zk-pow-mine`; see `docker/entrypoint.sh`.
 

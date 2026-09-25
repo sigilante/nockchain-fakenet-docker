@@ -48,7 +48,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # even a shallow clone since it skips .git entirely.
 ARG NOCKCHAIN_VERSION=master
 WORKDIR /build/nockchain
-RUN curl -fsSL "https://github.com/sigilante/nockchain/archive/${NOCKCHAIN_VERSION}.tar.gz" -o /tmp/nockchain-src.tar.gz && \
+RUN curl -fsSL "https://github.com/nockchain/nockchain/archive/${NOCKCHAIN_VERSION}.tar.gz" -o /tmp/nockchain-src.tar.gz && \
     tar xzf /tmp/nockchain-src.tar.gz --strip-components=1 -C . && \
     rm /tmp/nockchain-src.tar.gz
 
