@@ -360,6 +360,17 @@ docker-compose build --no-cache
 docker-compose up -d --build
 ```
 
+### Publishing images
+
+`davis68/nockchain-fakenet-miner` and `davis68/nockchain-fakenet-node` on Docker Hub are built and pushed by [`.github/workflows/publish-images.yml`](.github/workflows/publish-images.yml), not from a local machine - this build is heavy (full Rust workspace + Hoon assets) and doesn't need to compete for a laptop's disk space.
+
+The workflow is manual-trigger only (it doesn't run on every push, since a source change here doesn't always mean a new image is wanted yet): run it from the repo's **Actions** tab, or `gh workflow run publish-images.yml`. By default it builds whatever `NOCKCHAIN_VERSION` is pinned to in `.env.example`; pass a different ref via the workflow's `nockchain_version` input to publish something else without touching that pin. It builds `linux/arm64` only, on a native arm64 runner, matching the architecture already published - see the workflow file's comments if you need `linux/amd64` too.
+
+It needs two repository secrets to push to Docker Hub, added under **Settings → Secrets and variables → Actions**:
+
+- `DOCKERHUB_USERNAME` - the `davis68` Docker Hub account name
+- `DOCKERHUB_TOKEN` - a Docker Hub [access token](https://hub.docker.com/settings/security) (not the account password) scoped to push to these two repositories
+
 ## References
 
 - [Nockchain Documentation](https://docs.nockchain.org/)

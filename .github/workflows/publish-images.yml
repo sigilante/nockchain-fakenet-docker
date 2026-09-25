@@ -1,0 +1,72 @@
+name: Publish Docker images
+
+# Manual only, by design: this repo pins NOCKCHAIN_VERSION to a specific
+# nockchain/nockchain commit (see .env.example / README's Repository Source
+# section), so a source change here doesn't by itself mean a new image is
+# wanted yet. Run this by hand from the Actions tab (or `gh workflow run
+# publish-images.yml`) whenever you're ready to publish what's pinned - or
+# pass a different ref via the nockchain_version input to publish something
+# else without touching the repo's pin.
+on:
+  workflow_dispatch:
+    inputs:
+      nockchain_version:
+        description: >-
+          nockchain/nockchain ref to build (branch, tag, or commit SHA).
+          Leave blank to use NOCKCHAIN_VERSION from .env.example.
+        required: false
+        type: string
+
+jobs:
+  build-and-push:
+    # Native arm64 build to match the images already published under
+    # davis68/* (built on Apple Silicon). Requires a GitHub plan with access
+    # to arm64-hosted runners - if this runner label isn't available on this
+    # account, switch to `ubuntu-latest` + `platforms: linux/arm64` on the
+    # build-push step below, which cross-builds via QEMU emulation instead
+    # (works, but much slower for a Rust build this size).
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        include:
+          - dockerfile: docker/Dockerfile.nockchain-miner
+            image: davis68/nockchain-fakenet-miner
+          - dockerfile: docker/Dockerfile.nockchain-node
+            image: davis68/nockchain-fakenet-node
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve NOCKCHAIN_VERSION
+        id: version
+        run: |
+          if [ -n "${{ inputs.nockchain_version }}" ]; then
+            echo "value=${{ inputs.nockchain_version }}" >> "$GITHUB_OUTPUT"
+          else
+            value=$(grep -m1 '^NOCKCHAIN_VERSION=' .env.example | cut -d= -f2-)
+            echo "value=$value" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            NOCKCHAIN_VERSION=${{ steps.version.outputs.value }}
+          tags: |
+            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ steps.version.outputs.value }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
